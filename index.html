@@ -94,6 +94,23 @@
   .empty-state .icon { font-size: 3rem; }
   .empty-state p { font-size: .82rem; }
 
+  .unread-badge {
+    background: #ff4ecd;
+    color: #fff;
+    font-size: .65rem;
+    font-weight: 700;
+    border-radius: 50%;
+    min-width: 18px;
+    height: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 4px;
+    margin-left: auto;
+    flex-shrink: 0;
+  }
+
+
   @keyframes slideUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
 </style>
 </head>
@@ -155,6 +172,7 @@
   let myName = "";
   let currentChat = null;   // { type: 'room'|'dm', id: string }
   let allUsers = [];
+  let unreadCounts = {};
   let onlineUsers = [];
 
   // ── Auth ──────────────────────────────────────
