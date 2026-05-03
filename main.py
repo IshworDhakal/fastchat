@@ -23,7 +23,8 @@ def init_db():
             room      TEXT,
             sender    TEXT,
             text      TEXT,
-            timestamp TEXT
+            timestamp TEXT,
+            edited    INTEGER DEFAULT 0
         )
     """)
     conn.execute("""
@@ -32,9 +33,19 @@ def init_db():
             sender    TEXT,
             receiver  TEXT,
             text      TEXT,
-            timestamp TEXT
+            timestamp TEXT,
+            edited    INTEGER DEFAULT 0
         )
     """)
+    # Add edited column if not exists
+    try:
+        conn.execute("ALTER TABLE room_messages ADD COLUMN edited INTEGER DEFAULT 0")
+    except:
+        pass
+    try:
+        conn.execute("ALTER TABLE dm_messages ADD COLUMN edited INTEGER DEFAULT 0")
+    except:
+        pass
     conn.commit()
     conn.close()
 
@@ -65,45 +76,97 @@ def get_all_users():
 
 def save_room_message(room, sender, text, timestamp):
     conn = sqlite3.connect("chat.db")
-    conn.execute("INSERT INTO room_messages (room, sender, text, timestamp) VALUES (?, ?, ?, ?)",
-                 (room, sender, text, timestamp))
+    cursor = conn.execute(
+        "INSERT INTO room_messages (room, sender, text, timestamp) VALUES (?, ?, ?, ?)",
+        (room, sender, text, timestamp)
+    )
+    msg_id = cursor.lastrowid
     conn.commit()
     conn.close()
+    return msg_id
 
 def load_room_messages(room):
     conn = sqlite3.connect("chat.db")
     rows = conn.execute(
-        "SELECT sender, text, timestamp FROM room_messages WHERE room = ? ORDER BY id DESC LIMIT 50",
+        "SELECT id, sender, text, timestamp, edited FROM room_messages WHERE room = ? ORDER BY id DESC LIMIT 50",
         (room,)
     ).fetchall()
     conn.close()
-    return [{"sender": r[0], "text": r[1], "timestamp": r[2]} for r in reversed(rows)]
+    return [{"id": r[0], "sender": r[1], "text": r[2], "timestamp": r[3], "edited": bool(r[4])} for r in reversed(rows)]
 
 def save_dm(sender, receiver, text, timestamp):
     conn = sqlite3.connect("chat.db")
-    conn.execute("INSERT INTO dm_messages (sender, receiver, text, timestamp) VALUES (?, ?, ?, ?)",
-                 (sender, receiver, text, timestamp))
+    cursor = conn.execute(
+        "INSERT INTO dm_messages (sender, receiver, text, timestamp) VALUES (?, ?, ?, ?)",
+        (sender, receiver, text, timestamp)
+    )
+    msg_id = cursor.lastrowid
     conn.commit()
     conn.close()
+    return msg_id
 
 def load_dm(user1, user2):
     conn = sqlite3.connect("chat.db")
     rows = conn.execute("""
-        SELECT sender, receiver, text, timestamp FROM dm_messages
+        SELECT id, sender, receiver, text, timestamp, edited FROM dm_messages
         WHERE (sender=? AND receiver=?) OR (sender=? AND receiver=?)
         ORDER BY id DESC LIMIT 50
     """, (user1, user2, user2, user1)).fetchall()
     conn.close()
-    return [{"sender": r[0], "receiver": r[1], "text": r[2], "timestamp": r[3]} for r in reversed(rows)]
+    return [{"id": r[0], "sender": r[1], "receiver": r[2], "text": r[3], "timestamp": r[4], "edited": bool(r[5])} for r in reversed(rows)]
+
+def edit_room_message(msg_id, username, new_text):
+    conn = sqlite3.connect("chat.db")
+    row = conn.execute("SELECT sender FROM room_messages WHERE id=?", (msg_id,)).fetchone()
+    if not row or row[0] != username:
+        conn.close()
+        return False
+    conn.execute("UPDATE room_messages SET text=?, edited=1 WHERE id=?", (new_text, msg_id))
+    conn.commit()
+    conn.close()
+    return True
+
+def delete_room_message(msg_id, username):
+    conn = sqlite3.connect("chat.db")
+    row = conn.execute("SELECT sender FROM room_messages WHERE id=?", (msg_id,)).fetchone()
+    if not row or row[0] != username:
+        conn.close()
+        return False
+    conn.execute("DELETE FROM room_messages WHERE id=?", (msg_id,))
+    conn.commit()
+    conn.close()
+    return True
+
+def edit_dm_message(msg_id, username, new_text):
+    conn = sqlite3.connect("chat.db")
+    row = conn.execute("SELECT sender FROM dm_messages WHERE id=?", (msg_id,)).fetchone()
+    if not row or row[0] != username:
+        conn.close()
+        return False
+    conn.execute("UPDATE dm_messages SET text=?, edited=1 WHERE id=?", (new_text, msg_id))
+    conn.commit()
+    conn.close()
+    return True
+
+def delete_dm_message(msg_id, username):
+    conn = sqlite3.connect("chat.db")
+    row = conn.execute("SELECT sender, receiver FROM dm_messages WHERE id=?", (msg_id,)).fetchone()
+    if not row or row[0] != username:
+        conn.close()
+        return False
+    conn.execute("DELETE FROM dm_messages WHERE id=?", (msg_id,))
+    conn.commit()
+    conn.close()
+    return True
 
 def search_messages(room, query):
     conn = sqlite3.connect("chat.db")
     rows = conn.execute(
-        "SELECT sender, text, timestamp FROM room_messages WHERE room=? AND text LIKE ? ORDER BY id DESC LIMIT 20",
+        "SELECT id, sender, text, timestamp FROM room_messages WHERE room=? AND text LIKE ? ORDER BY id DESC LIMIT 20",
         (room, f"%{query}%")
     ).fetchall()
     conn.close()
-    return [{"sender": r[0], "text": r[1], "timestamp": r[2]} for r in reversed(rows)]
+    return [{"id": r[0], "sender": r[1], "text": r[2], "timestamp": r[3]} for r in reversed(rows)]
 
 init_db()
 
@@ -267,10 +330,43 @@ async def websocket_endpoint(websocket: WebSocket):
                 receiver = data.get("to")
                 text = data.get("text", "")
                 ts = _now()
-                save_dm(username, receiver, text, ts)
-                msg = {"type": "dm", "sender": username, "receiver": receiver, "text": text, "timestamp": ts}
+                msg_id = save_dm(username, receiver, text, ts)
+                msg = {"type": "dm", "id": msg_id, "sender": username, "receiver": receiver, "text": text, "timestamp": ts, "edited": False}
                 await manager.send_to(receiver, msg)
                 await manager.send_to(username, msg)
+
+            elif data.get("type") == "edit_message":
+                msg_id = data.get("id")
+                new_text = data.get("text", "").strip()
+                is_dm = data.get("is_dm", False)
+                if not new_text:
+                    continue
+                if is_dm:
+                    other = data.get("other")
+                    if edit_dm_message(msg_id, username, new_text):
+                        msg = {"type": "message_edited", "id": msg_id, "text": new_text, "is_dm": True}
+                        await manager.send_to(username, msg)
+                        await manager.send_to(other, msg)
+                else:
+                    if edit_room_message(msg_id, username, new_text):
+                        await manager.broadcast_room(current_room, {
+                            "type": "message_edited", "id": msg_id, "text": new_text, "is_dm": False, "room": current_room
+                        })
+
+            elif data.get("type") == "delete_message":
+                msg_id = data.get("id")
+                is_dm = data.get("is_dm", False)
+                if is_dm:
+                    other = data.get("other")
+                    if delete_dm_message(msg_id, username):
+                        msg = {"type": "message_deleted", "id": msg_id, "is_dm": True}
+                        await manager.send_to(username, msg)
+                        await manager.send_to(other, msg)
+                else:
+                    if delete_room_message(msg_id, username):
+                        await manager.broadcast_room(current_room, {
+                            "type": "message_deleted", "id": msg_id, "is_dm": False, "room": current_room
+                        })
 
             elif data.get("type") == "search":
                 query = data.get("query", "")
@@ -280,9 +376,10 @@ async def websocket_endpoint(websocket: WebSocket):
             elif data.get("text"):
                 text = data["text"]
                 ts = _now()
-                save_room_message(current_room, username, text, ts)
+                msg_id = save_room_message(current_room, username, text, ts)
                 await manager.broadcast_room(current_room, {
-                    "type": "message", "sender": username, "text": text, "timestamp": ts, "room": current_room,
+                    "type": "message", "id": msg_id, "sender": username,
+                    "text": text, "timestamp": ts, "room": current_room, "edited": False,
                 })
 
     except WebSocketDisconnect:
