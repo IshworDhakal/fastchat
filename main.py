@@ -1,9 +1,12 @@
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
-from fastapi.responses import HTMLResponse
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, UploadFile, File
+from fastapi.responses import HTMLResponse, FileResponse
 from typing import Dict
-import json, datetime, sqlite3, bcrypt
+import json, datetime, sqlite3, bcrypt, os, uuid
 
 app = FastAPI()
+
+UPLOAD_DIR = "uploads"
+os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 # ── Database ───────────────────────────────────
 def init_db():
@@ -63,10 +66,8 @@ def get_all_users():
 
 def save_room_message(room, sender, text, timestamp):
     conn = sqlite3.connect("chat.db")
-    conn.execute(
-        "INSERT INTO room_messages (room, sender, text, timestamp) VALUES (?, ?, ?, ?)",
-        (room, sender, text, timestamp)
-    )
+    conn.execute("INSERT INTO room_messages (room, sender, text, timestamp) VALUES (?, ?, ?, ?)",
+                 (room, sender, text, timestamp))
     conn.commit()
     conn.close()
 
@@ -81,10 +82,8 @@ def load_room_messages(room):
 
 def save_dm(sender, receiver, text, timestamp):
     conn = sqlite3.connect("chat.db")
-    conn.execute(
-        "INSERT INTO dm_messages (sender, receiver, text, timestamp) VALUES (?, ?, ?, ?)",
-        (sender, receiver, text, timestamp)
-    )
+    conn.execute("INSERT INTO dm_messages (sender, receiver, text, timestamp) VALUES (?, ?, ?, ?)",
+                 (sender, receiver, text, timestamp))
     conn.commit()
     conn.close()
 
@@ -148,43 +147,52 @@ async def get():
     with open("index.html", encoding="utf-8") as f:
         return f.read()
 
+@app.post("/upload")
+async def upload_file(file: UploadFile = File(...)):
+    ext = file.filename.split(".")[-1].lower()
+    if ext not in ["jpg", "jpeg", "png", "gif", "webp"]:
+        return {"error": "Invalid file type. Only jpg, jpeg, png, gif, webp allowed."}
+    if file.size and file.size > 5 * 1024 * 1024:
+        return {"error": "File too large. Max 5MB."}
+    filename = f"{uuid.uuid4()}.{ext}"
+    path = os.path.join(UPLOAD_DIR, filename)
+    with open(path, "wb") as f:
+        content = await file.read()
+        f.write(content)
+    return {"url": f"/uploads/{filename}"}
+
+@app.get("/uploads/{filename}")
+async def get_upload(filename: str):
+    path = os.path.join(UPLOAD_DIR, filename)
+    if not os.path.exists(path):
+        return {"error": "Not found"}
+    return FileResponse(path)
+
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
 
-    # ── Auth ──────────────────────────────────
     data = json.loads(await websocket.receive_text())
     action   = data.get("action")
     username = data.get("username", "").strip()
     password = data.get("password", "").strip()
 
     if not username or not password:
-        await websocket.send_text(json.dumps({
-            "type": "auth_fail",
-            "text": "Username and password required."
-        }))
+        await websocket.send_text(json.dumps({"type": "auth_fail", "text": "Username and password required."}))
         await websocket.close()
         return
 
     if action == "register":
         if not register_user(username, password):
-            await websocket.send_text(json.dumps({
-                "type": "auth_fail",
-                "text": "Username already taken."
-            }))
+            await websocket.send_text(json.dumps({"type": "auth_fail", "text": "Username already taken."}))
             await websocket.close()
             return
-
     elif action == "login":
         if not login_user(username, password):
-            await websocket.send_text(json.dumps({
-                "type": "auth_fail",
-                "text": "Wrong username or password."
-            }))
+            await websocket.send_text(json.dumps({"type": "auth_fail", "text": "Wrong username or password."}))
             await websocket.close()
             return
 
-    # ── Auth OK ───────────────────────────────
     await manager.connect(username, websocket)
     current_room = "general"
     manager.rooms[current_room][username] = websocket
@@ -197,7 +205,6 @@ async def websocket_endpoint(websocket: WebSocket):
         "online_users": manager.online_users(),
     }))
 
-    # Notify others — include all_users so new user appears instantly
     for u in list(manager.users.keys()):
         if u != username:
             await manager.send_to(u, {
@@ -207,13 +214,8 @@ async def websocket_endpoint(websocket: WebSocket):
                 "all_users": get_all_users(),
             })
 
-    # Send room history
     history = load_room_messages(current_room)
-    await websocket.send_text(json.dumps({
-        "type": "history",
-        "messages": history,
-        "room": current_room
-    }))
+    await websocket.send_text(json.dumps({"type": "history", "messages": history, "room": current_room}))
 
     await manager.broadcast_room(current_room, {
         "type": "system",
@@ -223,13 +225,29 @@ async def websocket_endpoint(websocket: WebSocket):
         "timestamp": _now(),
     })
 
-    # ── Main loop ─────────────────────────────
     try:
         while True:
             data = json.loads(await websocket.receive_text())
 
+            # Typing indicator
+            if data.get("type") == "typing":
+                is_dm = data.get("to") is not None
+                if is_dm:
+                    await manager.send_to(data.get("to"), {
+                        "type": "typing",
+                        "username": username,
+                        "is_dm": True,
+                    })
+                else:
+                    await manager.broadcast_room(current_room, {
+                        "type": "typing",
+                        "username": username,
+                        "room": current_room,
+                        "is_dm": False,
+                    })
+
             # Switch room
-            if data.get("type") == "switch_room":
+            elif data.get("type") == "switch_room":
                 new_room = data.get("room")
                 if new_room not in ROOMS:
                     continue
@@ -244,11 +262,7 @@ async def websocket_endpoint(websocket: WebSocket):
                 current_room = new_room
                 manager.rooms[current_room][username] = websocket
                 history = load_room_messages(current_room)
-                await websocket.send_text(json.dumps({
-                    "type": "history",
-                    "messages": history,
-                    "room": current_room
-                }))
+                await websocket.send_text(json.dumps({"type": "history", "messages": history, "room": current_room}))
                 await manager.broadcast_room(current_room, {
                     "type": "system",
                     "text": f"{username} joined #{current_room}",
@@ -305,7 +319,6 @@ async def websocket_endpoint(websocket: WebSocket):
             "room": current_room,
             "timestamp": _now(),
         })
-        # Notify others user went offline
         for u in list(manager.users.keys()):
             await manager.send_to(u, {
                 "type": "user_offline",
