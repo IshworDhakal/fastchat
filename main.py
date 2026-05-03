@@ -63,8 +63,10 @@ def get_all_users():
 
 def save_room_message(room, sender, text, timestamp):
     conn = sqlite3.connect("chat.db")
-    conn.execute("INSERT INTO room_messages (room, sender, text, timestamp) VALUES (?, ?, ?, ?)",
-                 (room, sender, text, timestamp))
+    conn.execute(
+        "INSERT INTO room_messages (room, sender, text, timestamp) VALUES (?, ?, ?, ?)",
+        (room, sender, text, timestamp)
+    )
     conn.commit()
     conn.close()
 
@@ -79,8 +81,10 @@ def load_room_messages(room):
 
 def save_dm(sender, receiver, text, timestamp):
     conn = sqlite3.connect("chat.db")
-    conn.execute("INSERT INTO dm_messages (sender, receiver, text, timestamp) VALUES (?, ?, ?, ?)",
-                 (sender, receiver, text, timestamp))
+    conn.execute(
+        "INSERT INTO dm_messages (sender, receiver, text, timestamp) VALUES (?, ?, ?, ?)",
+        (sender, receiver, text, timestamp)
+    )
     conn.commit()
     conn.close()
 
@@ -101,7 +105,7 @@ ROOMS = ["general", "random", "tech"]
 
 class Manager:
     def __init__(self):
-        self.users: Dict[str, WebSocket] = {}  # username -> ws
+        self.users: Dict[str, WebSocket] = {}
         self.rooms: Dict[str, Dict[str, WebSocket]] = {r: {} for r in ROOMS}
 
     async def connect(self, username, websocket):
@@ -142,34 +146,45 @@ manager = Manager()
 @app.get("/", response_class=HTMLResponse)
 async def get():
     with open("index.html", encoding="utf-8") as f:
-     return f.read()
+        return f.read()
+
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
 
-    # Auth
+    # ── Auth ──────────────────────────────────
     data = json.loads(await websocket.receive_text())
     action   = data.get("action")
     username = data.get("username", "").strip()
     password = data.get("password", "").strip()
 
     if not username or not password:
-        await websocket.send_text(json.dumps({"type": "auth_fail", "text": "Username and password required."}))
+        await websocket.send_text(json.dumps({
+            "type": "auth_fail",
+            "text": "Username and password required."
+        }))
         await websocket.close()
         return
 
     if action == "register":
         if not register_user(username, password):
-            await websocket.send_text(json.dumps({"type": "auth_fail", "text": "Username already taken."}))
-            await websocket.close()
-            return
-    elif action == "login":
-        if not login_user(username, password):
-            await websocket.send_text(json.dumps({"type": "auth_fail", "text": "Wrong username or password."}))
+            await websocket.send_text(json.dumps({
+                "type": "auth_fail",
+                "text": "Username already taken."
+            }))
             await websocket.close()
             return
 
-    # Auth OK
+    elif action == "login":
+        if not login_user(username, password):
+            await websocket.send_text(json.dumps({
+                "type": "auth_fail",
+                "text": "Wrong username or password."
+            }))
+            await websocket.close()
+            return
+
+    # ── Auth OK ───────────────────────────────
     await manager.connect(username, websocket)
     current_room = "general"
     manager.rooms[current_room][username] = websocket
@@ -182,13 +197,14 @@ async def websocket_endpoint(websocket: WebSocket):
         "online_users": manager.online_users(),
     }))
 
-    # Notify others user is online
-    for u, ws in manager.users.items():
+    # Notify others — include all_users so new user appears instantly
+    for u in list(manager.users.keys()):
         if u != username:
             await manager.send_to(u, {
                 "type": "user_online",
                 "username": username,
                 "online_users": manager.online_users(),
+                "all_users": get_all_users(),
             })
 
     # Send room history
@@ -207,6 +223,7 @@ async def websocket_endpoint(websocket: WebSocket):
         "timestamp": _now(),
     })
 
+    # ── Main loop ─────────────────────────────
     try:
         while True:
             data = json.loads(await websocket.receive_text())
@@ -240,7 +257,7 @@ async def websocket_endpoint(websocket: WebSocket):
                     "timestamp": _now(),
                 })
 
-            # DM history request
+            # Load DM history
             elif data.get("type") == "load_dm":
                 other = data.get("with")
                 messages = load_dm(username, other)
@@ -288,11 +305,13 @@ async def websocket_endpoint(websocket: WebSocket):
             "room": current_room,
             "timestamp": _now(),
         })
-        for u in manager.users:
+        # Notify others user went offline
+        for u in list(manager.users.keys()):
             await manager.send_to(u, {
                 "type": "user_offline",
                 "username": username,
                 "online_users": manager.online_users(),
+                "all_users": get_all_users(),
             })
 
 def _now():
