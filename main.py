@@ -141,9 +141,8 @@ manager = Manager()
 # ── Routes ─────────────────────────────────────
 @app.get("/", response_class=HTMLResponse)
 async def get():
-    with open("index.html") as f:
-        return f.read()
-
+    with open("index.html", encoding="utf-8") as f:
+     return f.read()
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
