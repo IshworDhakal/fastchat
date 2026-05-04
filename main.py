@@ -37,7 +37,6 @@ def init_db():
             edited    INTEGER DEFAULT 0
         )
     """)
-    # Add edited column if not exists
     try:
         conn.execute("ALTER TABLE room_messages ADD COLUMN edited INTEGER DEFAULT 0")
     except:
@@ -215,6 +214,13 @@ manager = Manager()
 async def get():
     with open("index.html", encoding="utf-8") as f:
         return f.read()
+
+@app.get("/check-username/{username}")
+async def check_username(username: str):
+    conn = sqlite3.connect("chat.db")
+    row = conn.execute("SELECT id FROM users WHERE username = ?", (username,)).fetchone()
+    conn.close()
+    return {"available": row is None}
 
 @app.post("/upload")
 async def upload_file(file: UploadFile = File(...)):
