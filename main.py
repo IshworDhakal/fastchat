@@ -1,12 +1,20 @@
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, UploadFile, File
 from fastapi.responses import HTMLResponse, FileResponse
 from typing import Dict
-import json, datetime, sqlite3, bcrypt, os, uuid
+import json, datetime, sqlite3, bcrypt, os, uuid, random, smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 
 app = FastAPI()
 
 UPLOAD_DIR = "uploads"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
+
+SMTP_EMAIL = os.environ.get("SMTP_EMAIL", "")
+SMTP_PASSWORD = os.environ.get("SMTP_PASSWORD", "")
+
+# Store pending verifications: {email: {code, username, password, expires}}
+pending_verifications: Dict[str, dict] = {}
 
 def init_db():
     conn = sqlite3.connect("chat.db")
@@ -14,7 +22,8 @@ def init_db():
         CREATE TABLE IF NOT EXISTS users (
             id       INTEGER PRIMARY KEY AUTOINCREMENT,
             username TEXT UNIQUE,
-            password TEXT
+            password TEXT,
+            email    TEXT UNIQUE
         )
     """)
     conn.execute("""
@@ -45,14 +54,18 @@ def init_db():
         conn.execute("ALTER TABLE dm_messages ADD COLUMN edited INTEGER DEFAULT 0")
     except:
         pass
+    try:
+        conn.execute("ALTER TABLE users ADD COLUMN email TEXT")
+    except:
+        pass
     conn.commit()
     conn.close()
 
-def register_user(username, password):
+def register_user(username, password, email=""):
     try:
         hashed = bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
         conn = sqlite3.connect("chat.db")
-        conn.execute("INSERT INTO users (username, password) VALUES (?, ?)", (username, hashed))
+        conn.execute("INSERT INTO users (username, password, email) VALUES (?, ?, ?)", (username, hashed, email))
         conn.commit()
         conn.close()
         return True
@@ -167,6 +180,45 @@ def search_messages(room, query):
     conn.close()
     return [{"id": r[0], "sender": r[1], "text": r[2], "timestamp": r[3]} for r in reversed(rows)]
 
+def send_verification_email(to_email, username, code):
+    try:
+        msg = MIMEMultipart("alternative")
+        msg["Subject"] = "FastChat — Verify Your Email"
+        msg["From"] = SMTP_EMAIL
+        msg["To"] = to_email
+
+        html = f"""
+        <html>
+        <body style="margin:0;padding:0;background:#0f1117;font-family:'Inter',sans-serif;">
+          <div style="max-width:480px;margin:40px auto;background:#1a1d2e;border-radius:16px;border:1px solid #252840;overflow:hidden;">
+            <div style="background:linear-gradient(135deg,#6c63ff,#ff4ecd);padding:32px;text-align:center;">
+              <div style="font-size:2.5rem;">⚡</div>
+              <h1 style="color:#fff;font-size:1.6rem;margin:8px 0 0;">FastChat</h1>
+            </div>
+            <div style="padding:32px;">
+              <h2 style="color:#ffffff;margin:0 0 8px;">Hi {username}! 👋</h2>
+              <p style="color:#7b82a0;margin:0 0 24px;">Thanks for joining FastChat! Enter this code to verify your email:</p>
+              <div style="background:#0f1117;border-radius:12px;padding:24px;text-align:center;border:1px solid #252840;margin-bottom:24px;">
+                <div style="letter-spacing:12px;font-size:2.2rem;font-weight:800;color:#6c63ff;">{code}</div>
+              </div>
+              <p style="color:#454a65;font-size:.82rem;margin:0;">⏱ This code expires in <strong style="color:#f0b232;">10 minutes</strong>.</p>
+              <p style="color:#454a65;font-size:.82rem;margin:8px 0 0;">If you didn't create a FastChat account, ignore this email.</p>
+            </div>
+          </div>
+        </body>
+        </html>
+        """
+
+        msg.attach(MIMEText(html, "html"))
+
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
+            server.login(SMTP_EMAIL, SMTP_PASSWORD)
+            server.sendmail(SMTP_EMAIL, to_email, msg.as_string())
+        return True
+    except Exception as e:
+        print(f"Email error: {e}")
+        return False
+
 init_db()
 
 ROOMS = ["general", "random", "tech"]
@@ -222,6 +274,66 @@ async def check_username(username: str):
     conn.close()
     return {"available": row is None}
 
+@app.post("/send-verification")
+async def send_verification(data: dict):
+    username = data.get("username", "").strip()
+    email = data.get("email", "").strip()
+    password = data.get("password", "").strip()
+
+    if not username or not email or not password:
+        return {"success": False, "error": "Missing fields"}
+
+    # Check username not taken
+    conn = sqlite3.connect("chat.db")
+    row = conn.execute("SELECT id FROM users WHERE username = ?", (username,)).fetchone()
+    conn.close()
+    if row:
+        return {"success": False, "error": "Username already taken"}
+
+    # Generate 6-digit code
+    code = str(random.randint(100000, 999999))
+    expires = datetime.datetime.now() + datetime.timedelta(minutes=10)
+
+    # Store pending
+    pending_verifications[email] = {
+        "code": code,
+        "username": username,
+        "password": password,
+        "expires": expires
+    }
+
+    # Send email
+    sent = send_verification_email(email, username, code)
+    if not sent:
+        return {"success": False, "error": "Failed to send email. Check your email address."}
+
+    return {"success": True}
+
+@app.post("/verify-code")
+async def verify_code(data: dict):
+    email = data.get("email", "").strip()
+    code = data.get("code", "").strip()
+
+    pending = pending_verifications.get(email)
+    if not pending:
+        return {"success": False, "error": "No verification pending. Please register again."}
+
+    if datetime.datetime.now() > pending["expires"]:
+        del pending_verifications[email]
+        return {"success": False, "error": "Code expired. Please register again."}
+
+    if pending["code"] != code:
+        return {"success": False, "error": "Wrong code. Try again."}
+
+    # Create account
+    success = register_user(pending["username"], pending["password"], email)
+    del pending_verifications[email]
+
+    if not success:
+        return {"success": False, "error": "Username already taken."}
+
+    return {"success": True, "username": pending["username"]}
+
 @app.post("/upload")
 async def upload_file(file: UploadFile = File(...)):
     ext = file.filename.split(".")[-1].lower()
@@ -255,16 +367,15 @@ async def websocket_endpoint(websocket: WebSocket):
         await websocket.close()
         return
 
-    if action == "register":
-        if not register_user(username, password):
-            await websocket.send_text(json.dumps({"type": "auth_fail", "text": "Username already taken."}))
-            await websocket.close()
-            return
-    elif action == "login":
+    if action == "login":
         if not login_user(username, password):
             await websocket.send_text(json.dumps({"type": "auth_fail", "text": "Wrong username or password."}))
             await websocket.close()
             return
+    else:
+        await websocket.send_text(json.dumps({"type": "auth_fail", "text": "Please use the register form."}))
+        await websocket.close()
+        return
 
     await manager.connect(username, websocket)
     current_room = "general"
