@@ -10,8 +10,8 @@ app = FastAPI()
 UPLOAD_DIR = "uploads"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
-SMTP_EMAIL = os.environ.get("SMTP_EMAIL", "")
-SMTP_PASSWORD = os.environ.get("SMTP_PASSWORD", "")
+SMTP_EMAIL = os.environ.get("SMTP_EMAIL", "iswordhakal00@gmail.com")
+SMTP_PASSWORD = os.environ.get("SMTP_PASSWORD", "rniqzdipzssbifsh")
 
 # Store pending verifications: {email: {code, username, password, expires}}
 pending_verifications: Dict[str, dict] = {}
