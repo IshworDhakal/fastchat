@@ -1,7 +1,7 @@
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, UploadFile, File
 from fastapi.responses import HTMLResponse, FileResponse
 from typing import Dict
-import json, datetime, sqlite3, bcrypt, os, uuid
+import json, datetime, sqlite3, bcrypt, os, uuid, asyncio
 
 app = FastAPI()
 
@@ -302,11 +302,25 @@ async def websocket_endpoint(websocket: WebSocket):
         "timestamp": _now(),
     })
 
+    async def keepalive():
+        while True:
+            await asyncio.sleep(25)
+            try:
+                await websocket.send_text('{"type":"ping"}')
+            except:
+                break
+
+    asyncio.create_task(keepalive())
+
     try:
         while True:
             data = json.loads(await websocket.receive_text())
 
-            if data.get("type") == "typing":
+            if data.get("type") == "ping":
+                await websocket.send_text('{"type":"pong"}')
+                continue
+
+            elif data.get("type") == "typing":
                 is_dm = data.get("to") is not None
                 if is_dm:
                     await manager.send_to(data.get("to"), {"type": "typing", "username": username, "is_dm": True})

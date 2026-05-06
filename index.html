@@ -706,8 +706,13 @@ function connectWS(action,username,password){
   const proto=location.protocol==="https:"?"wss":"ws";
   ws=new WebSocket(`${proto}://${location.host}/ws`);
   ws.onopen=()=>ws.send(JSON.stringify({action,username,password}));
-  ws.onmessage=e=>handleMsg(JSON.parse(e.data));
-  ws.onclose=()=>{};
+  ws.onmessage=e=>{const m=JSON.parse(e.data);if(m.type==="pong")return;handleMsg(m);};
+  ws.onclose=()=>{
+    setTimeout(()=>{
+      const {u,p}=getSaved();
+      if(u&&p)connectWS("login",u,p);
+    },3000);
+  };
   if(action==="login")saveSession(username,password);
 }
 
