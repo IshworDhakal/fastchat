@@ -383,6 +383,44 @@ async def websocket_endpoint(websocket: WebSocket):
                 results = search_messages(current_room, query)
                 await websocket.send_text(json.dumps({"type": "search_results", "results": results, "query": query}))
 
+            elif data.get("type") == "call_offer":
+                target = data.get("to")
+                await manager.send_to(target, {
+                    "type": "call_offer",
+                    "from": username,
+                    "offer": data.get("offer")
+                })
+
+            elif data.get("type") == "call_answer":
+                target = data.get("to")
+                await manager.send_to(target, {
+                    "type": "call_answer",
+                    "from": username,
+                    "answer": data.get("answer")
+                })
+
+            elif data.get("type") == "call_ice":
+                target = data.get("to")
+                await manager.send_to(target, {
+                    "type": "call_ice",
+                    "from": username,
+                    "candidate": data.get("candidate")
+                })
+
+            elif data.get("type") == "call_reject":
+                target = data.get("to")
+                await manager.send_to(target, {
+                    "type": "call_reject",
+                    "from": username
+                })
+
+            elif data.get("type") == "call_end":
+                target = data.get("to")
+                await manager.send_to(target, {
+                    "type": "call_end",
+                    "from": username
+                })
+
             elif data.get("text"):
                 text = data["text"]
                 ts = _now()
