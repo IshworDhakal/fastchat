@@ -204,8 +204,8 @@ body { font-family: var(--mono); background: var(--bg); color: var(--text); heig
 .profile-status { display: flex; align-items: center; gap: 6px; margin-top: 8px; font-size: .8rem; color: var(--text-muted); }
 .profile-status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); }
 .profile-divider { height: 1px; background: var(--border); margin: 12px 0; }
-.profile-actions { display: flex; gap: 8px; margin-top: 12px; }
-.profile-btn { flex: 1; padding: 8px; border-radius: 8px; border: none; font-family: var(--mono); font-size: .82rem; cursor: pointer; font-weight: 600; transition: background .15s; }
+.profile-actions { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+.profile-btn { flex: 1; padding: 8px; border-radius: 8px; border: none; font-family: var(--mono); font-size: .82rem; cursor: pointer; font-weight: 600; transition: background .15s; min-width: 80px; }
 .profile-btn-primary { background: var(--accent); color: #fff; }
 .profile-btn-primary:hover { background: var(--accent-h); }
 .profile-btn-secondary { background: var(--surface2); color: var(--text); border: 1px solid var(--border); }
@@ -344,19 +344,17 @@ body.light { --bg: #f0f2f5; --sidebar: #e4e6ea; --surface: #ffffff; --surface2: 
 .incoming-call-name { font-weight: 700; color: var(--white); font-size: 1rem; }
 .incoming-call-text { font-size: .82rem; color: var(--text-muted); }
 .incoming-call-btns { display: flex; gap: 16px; }
-.call-accept { background: var(--green); color: #fff; border: none; border-radius: 50%; width: 52px; height: 52px; font-size: 1.3rem; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+.call-accept { background: var(--green); color: #fff; border: none; border-radius: 50%; width: 52px; height: 52px; font-size: 1.3rem; cursor: pointer; display: flex; align-items: center; justify-content: center; animation: pulse 1.5s infinite; }
 .call-accept:hover { background: #1a8a45; }
 .call-decline { background: var(--red); color: #fff; border: none; border-radius: 50%; width: 52px; height: 52px; font-size: 1.3rem; cursor: pointer; display: flex; align-items: center; justify-content: center; }
 .call-decline:hover { background: #c0292b; }
 @keyframes pulse { 0%,100% { box-shadow: 0 0 0 0 rgba(35,165,90,0.4); } 50% { box-shadow: 0 0 0 12px rgba(35,165,90,0); } }
-.call-accept { animation: pulse 1.5s infinite; }
+@keyframes audioPulse { 0%,100% { box-shadow: 0 0 0 0 rgba(108,99,255,0.4); } 50% { box-shadow: 0 0 0 20px rgba(108,99,255,0); } }
 </style>
 </head>
 <body>
 
 <div id="auth-overlay">
-
-  <!-- Login -->
   <div class="auth-card" id="login-card">
     <div class="auth-logo">
       <div class="auth-logo-icon"><img src="/logo.png" style="width:100%;height:100%;object-fit:cover;border-radius:12px;"/></div>
@@ -373,7 +371,6 @@ body.light { --bg: #f0f2f5; --sidebar: #e4e6ea; --surface: #ffffff; --surface2: 
     <div class="auth-switch">Need an account? <a onclick="showReg()">Register</a></div>
   </div>
 
-  <!-- Register -->
   <div class="auth-card" id="reg-card" style="display:none;">
     <button class="back-btn" onclick="showLogin()">&#8592;</button>
     <div class="auth-logo">
@@ -410,10 +407,8 @@ body.light { --bg: #f0f2f5; --sidebar: #e4e6ea; --surface: #ffffff; --surface2: 
     <button class="btn-primary" id="reg-btn" onclick="doRegister()" disabled>Create Account</button>
     <div class="auth-switch">Already have an account? <a onclick="showLogin()">Login</a></div>
   </div>
-
 </div>
 
-<!-- IMAGE PREVIEW -->
 <div class="img-preview" id="img-preview" onclick="closePreview()">
   <img id="preview-img" src="" alt="preview" onclick="event.stopPropagation()"/>
   <div class="img-preview-actions" onclick="event.stopPropagation()">
@@ -422,7 +417,6 @@ body.light { --bg: #f0f2f5; --sidebar: #e4e6ea; --surface: #ffffff; --surface2: 
   </div>
 </div>
 
-<!-- PROFILE MODAL -->
 <div class="modal-overlay" id="profile-modal" onclick="closeProfile()">
   <div class="profile-modal" onclick="event.stopPropagation()">
     <div class="profile-banner">
@@ -435,21 +429,23 @@ body.light { --bg: #f0f2f5; --sidebar: #e4e6ea; --surface: #ffffff; --surface2: 
       <div class="profile-status"><div class="profile-status-dot" id="profile-status-dot"></div><span id="profile-status-text">Online</span></div>
       <div class="profile-divider"></div>
       <div class="profile-actions">
-       <button class="profile-btn profile-btn-primary" id="profile-dm-btn" onclick="profileSendDM()">&#128172; Message</button>
-       <button class="profile-btn profile-btn-primary" id="profile-call-btn" onclick="closeProfile();startCall(profileUser)" style="background:var(--green);">&#128247; Video Call</button>
+        <button class="profile-btn profile-btn-primary" id="profile-dm-btn" onclick="profileSendDM()">&#128172; Message</button>
+        <button class="profile-btn profile-btn-primary" id="profile-call-btn" onclick="closeProfile();startCall(profileUser,'video')" style="background:var(--green);">&#128247; Video</button>
+        <button class="profile-btn profile-btn-primary" id="profile-audio-btn" onclick="closeProfile();startCall(profileUser,'audio')" style="background:var(--accent);">&#127908; Audio</button>
         <button class="profile-btn profile-btn-secondary" onclick="closeProfile()">Close</button>
       </div>
     </div>
   </div>
 </div>
 
-<!-- APP -->
 <div class="sidebar-overlay" id="sidebar-overlay" onclick="closeSidebar()"></div>
 <div class="app" id="app">
   <div class="sidebar" id="sidebar">
     <div class="sidebar-top">
-      <div class="brand-icon"><img src="/logo.png" style="width:100%;height:100%;object-fit:cover;border-radius:8px;"/></div>
-
+      <div class="brand">
+        <div class="brand-icon"><img src="/logo.png" style="width:100%;height:100%;object-fit:cover;border-radius:8px;"/></div>
+        <div class="brand-name"><span class="fc-fast">Guf</span><span class="fc-chat">Gaff</span></div>
+      </div>
       <div class="my-status"><div class="status-dot"></div><span class="my-username" id="my-uname">—</span><span style="font-size:.7rem;opacity:.5">&#8226; Online</span></div>
     </div>
     <div class="sidebar-search"><div class="search-box"><span style="font-size:.85rem;opacity:.4">&#128269;</span><input type="text" placeholder="Search users..." oninput="filterAll(this.value)"/></div></div>
@@ -549,6 +545,45 @@ body.light { --bg: #f0f2f5; --sidebar: #e4e6ea; --surface: #ffffff; --surface2: 
   </div>
 </div>
 
+<!-- INCOMING CALL -->
+<div class="incoming-call" id="incoming-call">
+  <div class="incoming-call-av" id="incoming-call-av">?</div>
+  <div class="incoming-call-name" id="incoming-call-name">Someone</div>
+  <div class="incoming-call-text" id="incoming-call-text">&#128247; Incoming video call...</div>
+  <div class="incoming-call-btns">
+    <button class="call-accept" onclick="acceptCall()" title="Accept">&#128222;</button>
+    <button class="call-decline" onclick="rejectCall()" title="Decline">&#128222;</button>
+  </div>
+</div>
+
+<!-- CALL SCREEN -->
+<div class="call-overlay" id="call-overlay">
+  <div class="call-info">
+    <div class="call-info-name" id="call-info-name">Username</div>
+    <div class="call-info-status" id="call-info-status">Connecting...</div>
+  </div>
+  <div id="call-audio-indicator" style="display:none;flex-direction:column;align-items:center;gap:16px;margin:24px 0;">
+    <div id="call-audio-av" style="width:100px;height:100px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;font-size:2.5rem;font-weight:700;color:#fff;animation:audioPulse 1.5s infinite;">?</div>
+    <div style="color:var(--text-muted);font-size:.88rem;">&#127908; Audio Call</div>
+  </div>
+  <div class="call-videos">
+    <div class="call-video-wrap remote">
+      <video id="remote-video" autoplay playsinline></video>
+      <div class="call-video-label" id="remote-label">Remote</div>
+    </div>
+  </div>
+  <div class="call-video-wrap local">
+    <video id="local-video" autoplay playsinline muted></video>
+    <div class="call-video-label">You</div>
+  </div>
+  <audio id="remote-audio" autoplay></audio>
+  <div class="call-controls">
+    <button class="call-btn mute" id="mute-btn" onclick="toggleMic()" title="Mute">&#127908;</button>
+    <button class="call-btn end" onclick="endCall()" title="End Call">&#128222;</button>
+    <button class="call-btn cam" id="cam-btn" onclick="toggleCam()" title="Camera">&#128247;</button>
+  </div>
+</div>
+
 <script>
 let ws=null,myName="",currentChat=null;
 let allUsers=[],onlineUsers=[],unreadCounts={};
@@ -588,40 +623,12 @@ function showReg(){document.getElementById("login-card").style.display="none";do
 function showLogin(){document.getElementById("reg-card").style.display="none";document.getElementById("login-card").style.display="flex";document.getElementById("auth-error").textContent="";}
 function togglePwd(id){const i=document.getElementById(id);i.type=i.type==="password"?"text":"password";}
 
-// ── VALIDATION ──────────────────────────────
 const validators={
-  fullname:{validate(v){
-    if(!v)return{ok:false,msg:"Full name is required",type:"error"};
-    if(v.length<2)return{ok:false,msg:"At least 2 characters required",type:"error"};
-    if(!/^[a-zA-Z\s'-]+$/.test(v))return{ok:false,msg:"Letters only (no numbers or symbols)",type:"error"};
-    return{ok:true,msg:"✓ Looks good!",type:"success"};
-  }},
-  username:{validate(v){
-    if(!v)return{ok:false,msg:"Username is required",type:"error"};
-    if(v.length<3)return{ok:false,msg:"At least 3 characters required",type:"error"};
-    if(!/^[a-zA-Z0-9_]+$/.test(v))return{ok:false,msg:"Letters, numbers and underscore only",type:"error"};
-    if(v.length>24)return{ok:false,msg:"Max 24 characters",type:"error"};
-    return{ok:true,msg:"✓ Checking availability...",type:"info"};
-  }},
-  password:{validate(v){
-    if(!v)return{ok:false,msg:"Password is required",type:"error"};
-    if(v.length<6)return{ok:false,msg:"At least 6 characters required",type:"error"};
-    if(v.length<8)return{ok:false,msg:"Use 8+ characters for better security",type:"info"};
-    if(!/(?=.*[A-Z])/.test(v))return{ok:false,msg:"Add at least one uppercase letter (A-Z)",type:"error"};
-    if(!/(?=.*[0-9])/.test(v))return{ok:false,msg:"Add at least one number (0-9)",type:"error"};
-    return{ok:true,msg:"✓ Strong password!",type:"success"};
-  }},
-  confirm:{validate(v){
-    const pwd=document.getElementById("reg-password").value;
-    if(!v)return{ok:false,msg:"Please confirm your password",type:"error"};
-    if(v!==pwd)return{ok:false,msg:"❌ Passwords do not match",type:"error"};
-    return{ok:true,msg:"✓ Passwords match!",type:"success"};
-  }},
-  terms:{validate(){
-    return document.getElementById("terms-chk").checked
-      ?{ok:true,msg:"",type:"success"}
-      :{ok:false,msg:"You must agree to continue",type:"error"};
-  }}
+  fullname:{validate(v){if(!v)return{ok:false,msg:"Full name is required",type:"error"};if(v.length<2)return{ok:false,msg:"At least 2 characters required",type:"error"};if(!/^[a-zA-Z\s'-]+$/.test(v))return{ok:false,msg:"Letters only",type:"error"};return{ok:true,msg:"✓ Looks good!",type:"success"};}},
+  username:{validate(v){if(!v)return{ok:false,msg:"Username is required",type:"error"};if(v.length<3)return{ok:false,msg:"At least 3 characters required",type:"error"};if(!/^[a-zA-Z0-9_]+$/.test(v))return{ok:false,msg:"Letters, numbers and underscore only",type:"error"};if(v.length>24)return{ok:false,msg:"Max 24 characters",type:"error"};return{ok:true,msg:"✓ Checking availability...",type:"info"};}},
+  password:{validate(v){if(!v)return{ok:false,msg:"Password is required",type:"error"};if(v.length<6)return{ok:false,msg:"At least 6 characters required",type:"error"};if(v.length<8)return{ok:false,msg:"Use 8+ characters for better security",type:"info"};if(!/(?=.*[A-Z])/.test(v))return{ok:false,msg:"Add at least one uppercase letter",type:"error"};if(!/(?=.*[0-9])/.test(v))return{ok:false,msg:"Add at least one number",type:"error"};return{ok:true,msg:"✓ Strong password!",type:"success"};}},
+  confirm:{validate(v){const pwd=document.getElementById("reg-password").value;if(!v)return{ok:false,msg:"Please confirm your password",type:"error"};if(v!==pwd)return{ok:false,msg:"❌ Passwords do not match",type:"error"};return{ok:true,msg:"✓ Passwords match!",type:"success"};}},
+  terms:{validate(){return document.getElementById("terms-chk").checked?{ok:true,msg:"",type:"success"}:{ok:false,msg:"You must agree to continue",type:"error"};}}
 };
 
 const fieldValid={fullname:false,username:false,password:false,confirm:false,terms:false};
@@ -633,68 +640,42 @@ function validateField(field){
   const msgEl=document.getElementById(`msg-${field}`);
   if(msgEl){msgEl.textContent=result.msg;msgEl.className=`field-msg ${result.type}`;}
   const input=inputIds[field]?document.getElementById(inputIds[field]):null;
-  if(input){
-    const hasVal=input.value.length>0;
-    input.className=hasVal?(result.ok&&field!=="username"?"valid":"invalid"):"";
-    const statusEl=document.getElementById(`status-${field}`);
-    if(statusEl)statusEl.textContent=hasVal?(result.ok&&field!=="username"?"✅":"❌"):"";
-  }
+  if(input){const hasVal=input.value.length>0;input.className=hasVal?(result.ok&&field!=="username"?"valid":"invalid"):"";const statusEl=document.getElementById(`status-${field}`);if(statusEl)statusEl.textContent=hasVal?(result.ok&&field!=="username"?"✅":"❌"):"";}
   if(field==="password")checkStr(document.getElementById("reg-password").value);
   if(field==="password"&&document.getElementById("reg-confirm").value)validateField("confirm");
-  if(field==="username"&&result.ok){
-    fieldValid.username=false;
-    if(usernameCheckTimer)clearTimeout(usernameCheckTimer);
-    usernameCheckTimer=setTimeout(()=>checkUsernameAvailability(document.getElementById("reg-username").value.trim()),600);
-  }else{
-    if(field!=="username")fieldValid[field]=result.ok;
-  }
+  if(field==="username"&&result.ok){fieldValid.username=false;if(usernameCheckTimer)clearTimeout(usernameCheckTimer);usernameCheckTimer=setTimeout(()=>checkUsernameAvailability(document.getElementById("reg-username").value.trim()),600);}
+  else{if(field!=="username")fieldValid[field]=result.ok;}
   if(field!=="username")updateRegBtn();
 }
 
 async function checkUsernameAvailability(username){
-  const statusEl=document.getElementById("status-username");
-  const msgEl=document.getElementById("msg-username");
-  const input=document.getElementById("reg-username");
+  const statusEl=document.getElementById("status-username");const msgEl=document.getElementById("msg-username");const input=document.getElementById("reg-username");
   statusEl.textContent="⏳";msgEl.textContent="Checking availability...";msgEl.className="field-msg info";
-  try{
-    const res=await fetch(`/check-username/${encodeURIComponent(username)}`);
-    const data=await res.json();
+  try{const res=await fetch(`/check-username/${encodeURIComponent(username)}`);const data=await res.json();
     if(data.available){statusEl.textContent="✅";msgEl.textContent="✓ Username is available!";msgEl.className="field-msg success";input.className="valid";fieldValid.username=true;}
-    else{statusEl.textContent="❌";msgEl.textContent="❌ Username already taken — choose another";msgEl.className="field-msg error";input.className="invalid";fieldValid.username=false;}
-  }catch(e){statusEl.textContent="";msgEl.textContent="Could not check — try again";msgEl.className="field-msg info";fieldValid.username=false;}
+    else{statusEl.textContent="❌";msgEl.textContent="❌ Username already taken";msgEl.className="field-msg error";input.className="invalid";fieldValid.username=false;}
+  }catch(e){statusEl.textContent="";msgEl.textContent="Could not check";msgEl.className="field-msg info";fieldValid.username=false;}
   updateRegBtn();
 }
 
 function updateRegBtn(){const allValid=Object.values(fieldValid).every(Boolean);document.getElementById("reg-btn").disabled=!allValid;}
 
 function checkStr(val){
-  const bars=["b1","b2","b3","b4"].map(id=>document.getElementById(id));
-  const lbl=document.getElementById("s-label");
-  bars.forEach(b=>b.className="s-bar");
-  if(!val){lbl.textContent="";return;}
-  let s=0;
-  if(val.length>=6)s++;if(val.length>=10)s++;
-  if(/[A-Z]/.test(val)&&/[0-9]/.test(val))s++;
-  if(/[^A-Za-z0-9]/.test(val))s++;
+  const bars=["b1","b2","b3","b4"].map(id=>document.getElementById(id));const lbl=document.getElementById("s-label");
+  bars.forEach(b=>b.className="s-bar");if(!val){lbl.textContent="";return;}
+  let s=0;if(val.length>=6)s++;if(val.length>=10)s++;if(/[A-Z]/.test(val)&&/[0-9]/.test(val))s++;if(/[^A-Za-z0-9]/.test(val))s++;
   const lvls=["weak","fair","good","strong"],lbls=["Weak","Fair","Good","Strong"];
-  for(let i=0;i<s;i++)bars[i].className=`s-bar ${lvls[s-1]}`;
-  lbl.textContent=lbls[s-1]||"";lbl.className=`s-label ${lvls[s-1]||""}`;
+  for(let i=0;i<s;i++)bars[i].className=`s-bar ${lvls[s-1]}`;lbl.textContent=lbls[s-1]||"";lbl.className=`s-label ${lvls[s-1]||""}`;
 }
 
-function doAuth(action){
-  const u=document.getElementById("auth-username").value.trim();
-  const p=document.getElementById("auth-password").value.trim();
-  if(!u||!p){document.getElementById("auth-error").textContent="Please enter username and password.";return;}
-  connectWS(action,u,p);
-}
+function doAuth(action){const u=document.getElementById("auth-username").value.trim();const p=document.getElementById("auth-password").value.trim();if(!u||!p){document.getElementById("auth-error").textContent="Please enter username and password.";return;}connectWS(action,u,p);}
 
 function doRegister(){
   fieldValid.fullname=validators.fullname.validate(document.getElementById("reg-fullname").value.trim()).ok;
   fieldValid.password=validators.password.validate(document.getElementById("reg-password").value.trim()).ok;
   fieldValid.confirm=validators.confirm.validate(document.getElementById("reg-confirm").value.trim()).ok;
   fieldValid.terms=document.getElementById("terms-chk").checked;
-  const u=document.getElementById("reg-username").value.trim();
-  const p=document.getElementById("reg-password").value.trim();
+  const u=document.getElementById("reg-username").value.trim();const p=document.getElementById("reg-password").value.trim();
   if(!u||!p||!Object.values(fieldValid).every(Boolean)){document.getElementById("reg-error").textContent="Please fix all errors.";return;}
   document.getElementById("reg-error").textContent="";
   connectWS("register",u,p);
@@ -707,12 +688,7 @@ function connectWS(action,username,password){
   ws=new WebSocket(`${proto}://${location.host}/ws`);
   ws.onopen=()=>ws.send(JSON.stringify({action,username,password}));
   ws.onmessage=e=>{const m=JSON.parse(e.data);if(m.type==="pong")return;handleMsg(m);};
-  ws.onclose=()=>{
-    setTimeout(()=>{
-      const {u,p}=getSaved();
-      if(u&&p)connectWS("login",u,p);
-    },3000);
-  };
+  ws.onclose=()=>{setTimeout(()=>{const {u,p}=getSaved();if(u&&p)connectWS("login",u,p);},3000);};
   if(action==="login")saveSession(username,password);
 }
 
@@ -726,8 +702,7 @@ function handleMsg(msg){
     document.getElementById("up-name").textContent=myName;
     const av=document.getElementById("up-av");av.style.background=userColor(myName);av.innerHTML=myName[0].toUpperCase()+'<div class="up-st"></div>';
     document.getElementById("msg-input").disabled=false;document.getElementById("send-btn").disabled=false;
-    buildRooms(msg.rooms);buildContacts();updateCount();buildEmojiPicker();requestNotifPerm();
-    return;
+    buildRooms(msg.rooms);buildContacts();updateCount();buildEmojiPicker();requestNotifPerm();return;
   }
   if(msg.type==="user_online"){onlineUsers=msg.online_users;if(msg.all_users)allUsers=msg.all_users;buildContacts();updateCount();return;}
   if(msg.type==="user_offline"){onlineUsers=msg.online_users;if(msg.all_users)allUsers=msg.all_users;buildContacts();updateCount();return;}
@@ -750,8 +725,7 @@ function showNotif(sender,text,type){
   const toast=document.createElement("div");toast.className="notif-toast";
   toast.innerHTML=`<div class="notif-av" style="background:${userColor(sender)}">${sender[0].toUpperCase()}</div><div class="notif-body"><div class="notif-name">${esc(sender)}</div><div class="notif-text">${esc(text.startsWith("[IMAGE]")?"📷 Image":text)}</div></div>`;
   toast.onclick=()=>{if(type==="dm")openDM(sender);document.body.removeChild(toast);};
-  document.body.appendChild(toast);
-  setTimeout(()=>{if(document.body.contains(toast))document.body.removeChild(toast);},4000);
+  document.body.appendChild(toast);setTimeout(()=>{if(document.body.contains(toast))document.body.removeChild(toast);},4000);
   if("Notification" in window&&Notification.permission==="granted"&&document.hidden)new Notification(sender,{body:text.startsWith("[IMAGE]")?"📷 Sent an image":text});
 }
 function addNotification(type,text,sender){const notif={id:Date.now(),type,text,sender,time:new Date().toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"}),unread:true};notifications.unshift(notif);if(notifications.length>20)notifications.pop();if(!notifOpen){unreadNotifCount++;document.getElementById("notif-count").style.display="block";}if(notifOpen)renderNotifs();}
@@ -778,7 +752,13 @@ function doSearch(){const q=document.getElementById("search-input").value.trim()
 function showSearchResults(results,query){const box=document.getElementById("search-results");if(results.length===0){box.innerHTML=`<div class="search-no-results">No results for "${esc(query)}"</div>`;return;}box.innerHTML=results.map(r=>`<div class="search-result-item"><div class="search-result-sender">${esc(r.sender)}</div><div class="search-result-text">${esc(r.text)}</div><div class="search-result-time">${esc(r.timestamp)}</div></div>`).join("");}
 document.getElementById("search-input").addEventListener("keydown",e=>{if(e.key==="Enter")doSearch();});
 let profileUser="";
-function openProfile(username){profileUser=username;const isOnline=onlineUsers.includes(username);const av=document.getElementById("profile-av");av.style.background=userColor(username);av.textContent=username[0].toUpperCase();document.getElementById("profile-name").textContent=username;document.getElementById("profile-status-dot").style.background=isOnline?"var(--green)":"var(--text-dim)";document.getElementById("profile-status-text").textContent=isOnline?"Online":"Offline";document.getElementById("profile-dm-btn").style.display=username===myName?"none":"block";document.getElementById("profile-modal").classList.add("show");}
+function openProfile(username){profileUser=username;const isOnline=onlineUsers.includes(username);const av=document.getElementById("profile-av");av.style.background=userColor(username);av.textContent=username[0].toUpperCase();document.getElementById("profile-name").textContent=username;document.getElementById("profile-status-dot").style.background=isOnline?"var(--green)":"var(--text-dim)";document.getElementById("profile-status-text").textContent=isOnline?"Online":"Offline";
+  const isMe=username===myName;
+  document.getElementById("profile-dm-btn").style.display=isMe?"none":"block";
+  document.getElementById("profile-call-btn").style.display=isMe?"none":"block";
+  document.getElementById("profile-audio-btn").style.display=isMe?"none":"block";
+  document.getElementById("profile-modal").classList.add("show");
+}
 function openMyProfile(){openProfile(myName);}
 function closeProfile(){document.getElementById("profile-modal").classList.remove("show");}
 function profileSendDM(){closeProfile();openDM(profileUser);}
@@ -840,30 +820,40 @@ window.addEventListener("load",()=>{
   const {u,p}=getSaved();if(u&&p){document.getElementById("auth-username").value=u;connectWS("login",u,p);}
 });
 
-// ── VIDEO CALL ──────────────────────────────
-let peerConnection=null,localStream=null,callWith=null,callOffer=null;
+// ── AUDIO/VIDEO CALL ──────────────────────────────
+let peerConnection=null,localStream=null,callWith=null,callOffer=null,callType="video";
 let micOn=true,camOn=true;
-
 const STUN={iceServers:[{urls:"stun:stun.l.google.com:19302"},{urls:"stun:stun1.l.google.com:19302"}]};
 
-async function startCall(username){
+async function startCall(username,type="video"){
   if(callWith){alert("Already in a call!");return;}
-  callWith=username;
+  callWith=username;callType=type;
   document.getElementById("call-info-name").textContent=username;
-  document.getElementById("call-info-status").textContent="Calling...";
+  document.getElementById("call-info-status").textContent=type==="audio"?"Calling (Audio)...":"Calling (Video)...";
   document.getElementById("remote-label").textContent=username;
+  const remoteWrap=document.querySelector(".call-video-wrap.remote");
+  const localWrap=document.querySelector(".call-video-wrap.local");
+  const camBtn=document.getElementById("cam-btn");
+  const audioInd=document.getElementById("call-audio-indicator");
+  if(type==="audio"){remoteWrap.style.display="none";localWrap.style.display="none";camBtn.style.display="none";audioInd.style.display="flex";document.getElementById("call-audio-av").textContent=username[0].toUpperCase();document.getElementById("call-audio-av").style.background=userColor(username);}
+  else{remoteWrap.style.display="";localWrap.style.display="";camBtn.style.display="";audioInd.style.display="none";}
   document.getElementById("call-overlay").classList.add("show");
   try{
-    localStream=await navigator.mediaDevices.getUserMedia({video:true,audio:true});
-    document.getElementById("local-video").srcObject=localStream;
+    const constraints=type==="audio"?{video:false,audio:true}:{video:true,audio:true};
+    localStream=await navigator.mediaDevices.getUserMedia(constraints);
+    if(type==="video")document.getElementById("local-video").srcObject=localStream;
     peerConnection=new RTCPeerConnection(STUN);
     localStream.getTracks().forEach(t=>peerConnection.addTrack(t,localStream));
     peerConnection.onicecandidate=e=>{if(e.candidate&&ws&&ws.readyState===WebSocket.OPEN)ws.send(JSON.stringify({type:"call_ice",to:callWith,candidate:e.candidate}));};
-    peerConnection.ontrack=e=>{document.getElementById("remote-video").srcObject=e.streams[0];document.getElementById("call-info-status").textContent="Connected ✅";};
+    peerConnection.ontrack=e=>{
+      if(type==="video"){document.getElementById("remote-video").srcObject=e.streams[0];}
+      else{const audio=document.getElementById("remote-audio");audio.srcObject=e.streams[0];audio.play();}
+      document.getElementById("call-info-status").textContent="Connected ✅";
+    };
     const offer=await peerConnection.createOffer();
     await peerConnection.setLocalDescription(offer);
-    ws.send(JSON.stringify({type:"call_offer",to:username,offer}));
-  }catch(e){alert("Could not access camera/microphone: "+e.message);endCall();}
+    ws.send(JSON.stringify({type:"call_offer",to:username,offer,callType:type}));
+  }catch(e){alert("Could not access microphone/camera: "+e.message);endCall();}
 }
 
 async function acceptCall(){
@@ -871,19 +861,30 @@ async function acceptCall(){
   document.getElementById("call-info-name").textContent=callWith;
   document.getElementById("call-info-status").textContent="Connecting...";
   document.getElementById("remote-label").textContent=callWith;
+  const remoteWrap=document.querySelector(".call-video-wrap.remote");
+  const localWrap=document.querySelector(".call-video-wrap.local");
+  const camBtn=document.getElementById("cam-btn");
+  const audioInd=document.getElementById("call-audio-indicator");
+  if(callType==="audio"){remoteWrap.style.display="none";localWrap.style.display="none";camBtn.style.display="none";audioInd.style.display="flex";document.getElementById("call-audio-av").textContent=callWith[0].toUpperCase();document.getElementById("call-audio-av").style.background=userColor(callWith);}
+  else{remoteWrap.style.display="";localWrap.style.display="";camBtn.style.display="";audioInd.style.display="none";}
   document.getElementById("call-overlay").classList.add("show");
   try{
-    localStream=await navigator.mediaDevices.getUserMedia({video:true,audio:true});
-    document.getElementById("local-video").srcObject=localStream;
+    const constraints=callType==="audio"?{video:false,audio:true}:{video:true,audio:true};
+    localStream=await navigator.mediaDevices.getUserMedia(constraints);
+    if(callType==="video")document.getElementById("local-video").srcObject=localStream;
     peerConnection=new RTCPeerConnection(STUN);
     localStream.getTracks().forEach(t=>peerConnection.addTrack(t,localStream));
     peerConnection.onicecandidate=e=>{if(e.candidate&&ws&&ws.readyState===WebSocket.OPEN)ws.send(JSON.stringify({type:"call_ice",to:callWith,candidate:e.candidate}));};
-    peerConnection.ontrack=e=>{document.getElementById("remote-video").srcObject=e.streams[0];document.getElementById("call-info-status").textContent="Connected ✅";};
+    peerConnection.ontrack=e=>{
+      if(callType==="video"){document.getElementById("remote-video").srcObject=e.streams[0];}
+      else{const audio=document.getElementById("remote-audio");audio.srcObject=e.streams[0];audio.play();}
+      document.getElementById("call-info-status").textContent="Connected ✅";
+    };
     await peerConnection.setRemoteDescription(new RTCSessionDescription(callOffer));
     const answer=await peerConnection.createAnswer();
     await peerConnection.setLocalDescription(answer);
     ws.send(JSON.stringify({type:"call_answer",to:callWith,answer}));
-  }catch(e){alert("Could not access camera/microphone: "+e.message);endCall();}
+  }catch(e){alert("Could not access microphone/camera: "+e.message);endCall();}
 }
 
 function rejectCall(){
@@ -900,15 +901,20 @@ function endCall(){
 function cleanupCall(){
   if(localStream)localStream.getTracks().forEach(t=>t.stop());
   if(peerConnection)peerConnection.close();
-  localStream=null;peerConnection=null;callWith=null;callOffer=null;
+  localStream=null;peerConnection=null;callWith=null;callOffer=null;callType="video";
   document.getElementById("call-overlay").classList.remove("show");
   document.getElementById("incoming-call").classList.remove("show");
   document.getElementById("local-video").srcObject=null;
   document.getElementById("remote-video").srcObject=null;
+  const audio=document.getElementById("remote-audio");audio.srcObject=null;
   document.getElementById("call-info-status").textContent="Connecting...";
   micOn=true;camOn=true;
   document.getElementById("mute-btn").classList.remove("active");
   document.getElementById("cam-btn").classList.remove("active");
+  document.querySelector(".call-video-wrap.remote").style.display="";
+  document.querySelector(".call-video-wrap.local").style.display="";
+  document.getElementById("cam-btn").style.display="";
+  document.getElementById("call-audio-indicator").style.display="none";
 }
 
 function toggleMic(){
@@ -928,58 +934,18 @@ function toggleCam(){
 function handleCallMsg(msg){
   if(msg.type==="call_offer"){
     if(callWith){ws.send(JSON.stringify({type:"call_reject",to:msg.from}));return;}
-    callWith=msg.from;callOffer=msg.offer;
+    callWith=msg.from;callOffer=msg.offer;callType=msg.callType||"video";
     const av=document.getElementById("incoming-call-av");
     av.style.background=userColor(msg.from);av.textContent=msg.from[0].toUpperCase();
     document.getElementById("incoming-call-name").textContent=msg.from;
+    document.getElementById("incoming-call-text").textContent=callType==="audio"?"🎤 Incoming audio call...":"📷 Incoming video call...";
     document.getElementById("incoming-call").classList.add("show");
   }
-  else if(msg.type==="call_answer"){
-    if(peerConnection)peerConnection.setRemoteDescription(new RTCSessionDescription(msg.answer));
-  }
-  else if(msg.type==="call_ice"){
-    if(peerConnection&&msg.candidate)peerConnection.addIceCandidate(new RTCIceCandidate(msg.candidate));
-  }
-  else if(msg.type==="call_reject"){
-    alert(`${msg.from} declined the call.`);cleanupCall();
-  }
-  else if(msg.type==="call_end"){
-    alert(`${msg.from} ended the call.`);cleanupCall();
-  }
+  else if(msg.type==="call_answer"){if(peerConnection)peerConnection.setRemoteDescription(new RTCSessionDescription(msg.answer));}
+  else if(msg.type==="call_ice"){if(peerConnection&&msg.candidate)peerConnection.addIceCandidate(new RTCIceCandidate(msg.candidate));}
+  else if(msg.type==="call_reject"){alert(`${msg.from} declined the call.`);cleanupCall();}
+  else if(msg.type==="call_end"){alert(`${msg.from} ended the call.`);cleanupCall();}
 }
 </script>
-<!-- INCOMING CALL -->
-<div class="incoming-call" id="incoming-call">
-  <div class="incoming-call-av" id="incoming-call-av">?</div>
-  <div class="incoming-call-name" id="incoming-call-name">Someone</div>
-  <div class="incoming-call-text">&#128247; Incoming video call...</div>
-  <div class="incoming-call-btns">
-    <button class="call-accept" onclick="acceptCall()" title="Accept">&#128222;</button>
-    <button class="call-decline" onclick="rejectCall()" title="Decline">&#128222;</button>
-  </div>
-</div>
-
-<!-- VIDEO CALL SCREEN -->
-<div class="call-overlay" id="call-overlay">
-  <div class="call-info">
-    <div class="call-info-name" id="call-info-name">Username</div>
-    <div class="call-info-status" id="call-info-status">Connecting...</div>
-  </div>
-  <div class="call-videos">
-    <div class="call-video-wrap remote">
-      <video id="remote-video" autoplay playsinline></video>
-      <div class="call-video-label" id="remote-label">Remote</div>
-    </div>
-  </div>
-  <div class="call-video-wrap local">
-    <video id="local-video" autoplay playsinline muted></video>
-    <div class="call-video-label">You</div>
-  </div>
-  <div class="call-controls">
-    <button class="call-btn mute" id="mute-btn" onclick="toggleMic()" title="Mute">&#127908;</button>
-    <button class="call-btn end" onclick="endCall()" title="End Call">&#128222;</button>
-    <button class="call-btn cam" id="cam-btn" onclick="toggleCam()" title="Camera">&#128247;</button>
-  </div>
-</div>
 </body>
 </html>
