@@ -656,10 +656,14 @@ function doAuth(action){
 }
 
 function doRegister(){
-  Object.keys(fieldValid).forEach(f=>validateField(f));
-  if(!Object.values(fieldValid).every(Boolean)){document.getElementById("reg-error").textContent="Please fix all errors.";return;}
+  fieldValid.fullname=validators.fullname.validate(document.getElementById("reg-fullname").value.trim()).ok;
+  fieldValid.password=validators.password.validate(document.getElementById("reg-password").value.trim()).ok;
+  fieldValid.confirm=validators.confirm.validate(document.getElementById("reg-confirm").value.trim()).ok;
+  fieldValid.terms=document.getElementById("terms-chk").checked;
   const u=document.getElementById("reg-username").value.trim();
   const p=document.getElementById("reg-password").value.trim();
+  if(!u||!p||!Object.values(fieldValid).every(Boolean)){document.getElementById("reg-error").textContent="Please fix all errors.";return;}
+  document.getElementById("reg-error").textContent="";
   connectWS("register",u,p);
 }
 
