@@ -241,6 +241,10 @@ async def get_upload(filename: str):
         return {"error": "Not found"}
     return FileResponse(path)
 
+@app.get("/logo.png")
+async def get_logo():
+    return FileResponse("logo.png")
+
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
