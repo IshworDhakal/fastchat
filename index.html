@@ -823,7 +823,15 @@ window.addEventListener("load",()=>{
 // ── AUDIO/VIDEO CALL ──────────────────────────────
 let peerConnection=null,localStream=null,callWith=null,callOffer=null,callType="video";
 let micOn=true,camOn=true;
-const STUN={iceServers:[{urls:"stun:stun.l.google.com:19302"},{urls:"stun:stun1.l.google.com:19302"}]};
+const STUN={iceServers:[
+  {urls:"stun:stun.l.google.com:19302"},
+  {urls:"stun:stun1.l.google.com:19302"},
+  {urls:"stun:stun2.l.google.com:19302"},
+  {urls:"stun:stun3.l.google.com:19302"},
+  {urls:"turn:openrelay.metered.ca:80",username:"openrelayproject",credential:"openrelayproject"},
+  {urls:"turn:openrelay.metered.ca:443",username:"openrelayproject",credential:"openrelayproject"},
+  {urls:"turn:openrelay.metered.ca:443?transport=tcp",username:"openrelayproject",credential:"openrelayproject"}
+]};
 
 async function startCall(username,type="video"){
   if(callWith){alert("Already in a call!");return;}
@@ -846,8 +854,16 @@ async function startCall(username,type="video"){
     localStream.getTracks().forEach(t=>peerConnection.addTrack(t,localStream));
     peerConnection.onicecandidate=e=>{if(e.candidate&&ws&&ws.readyState===WebSocket.OPEN)ws.send(JSON.stringify({type:"call_ice",to:callWith,candidate:e.candidate}));};
     peerConnection.ontrack=e=>{
-      if(type==="video"){document.getElementById("remote-video").srcObject=e.streams[0];}
-      else{const audio=document.getElementById("remote-audio");audio.srcObject=e.streams[0];audio.play();}
+      console.log("Got remote track:",e.track.kind);
+      if(callType==="video"){
+        const remoteVideo=document.getElementById("remote-video");
+        remoteVideo.srcObject=e.streams[0];
+        remoteVideo.play().catch(err=>console.log("Video play error:",err));
+      } else {
+        const audio=document.getElementById("remote-audio");
+        audio.srcObject=e.streams[0];
+        audio.play().catch(err=>console.log("Audio play error:",err));
+      }
       document.getElementById("call-info-status").textContent="Connected ✅";
     };
     const offer=await peerConnection.createOffer();
