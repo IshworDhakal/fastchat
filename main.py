@@ -8,13 +8,18 @@ app = FastAPI()
 UPLOAD_DIR = "uploads"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
+# ── ADMIN CONFIG ──────────────────────────────
+ADMINS = ["Ishwor123"]  # Add any username here to make them admin
+
 def init_db():
     conn = sqlite3.connect("chat.db")
     conn.execute("""
         CREATE TABLE IF NOT EXISTS users (
             id       INTEGER PRIMARY KEY AUTOINCREMENT,
             username TEXT UNIQUE,
-            password TEXT
+            password TEXT,
+            is_admin INTEGER DEFAULT 0,
+            is_banned INTEGER DEFAULT 0
         )
     """)
     conn.execute("""
@@ -39,20 +44,25 @@ def init_db():
     """)
     try:
         conn.execute("ALTER TABLE room_messages ADD COLUMN edited INTEGER DEFAULT 0")
-    except:
-        pass
+    except: pass
     try:
         conn.execute("ALTER TABLE dm_messages ADD COLUMN edited INTEGER DEFAULT 0")
-    except:
-        pass
+    except: pass
+    try:
+        conn.execute("ALTER TABLE users ADD COLUMN is_admin INTEGER DEFAULT 0")
+    except: pass
+    try:
+        conn.execute("ALTER TABLE users ADD COLUMN is_banned INTEGER DEFAULT 0")
+    except: pass
     conn.commit()
     conn.close()
 
 def register_user(username, password):
     try:
         hashed = bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
+        is_admin = 1 if username in ADMINS else 0
         conn = sqlite3.connect("chat.db")
-        conn.execute("INSERT INTO users (username, password) VALUES (?, ?)", (username, hashed))
+        conn.execute("INSERT INTO users (username, password, is_admin) VALUES (?, ?, ?)", (username, hashed, is_admin))
         conn.commit()
         conn.close()
         return True
@@ -61,17 +71,48 @@ def register_user(username, password):
 
 def login_user(username, password):
     conn = sqlite3.connect("chat.db")
-    row = conn.execute("SELECT password FROM users WHERE username = ?", (username,)).fetchone()
+    row = conn.execute("SELECT password, is_banned FROM users WHERE username = ?", (username,)).fetchone()
     conn.close()
-    if not row:
-        return False
+    if not row: return False
+    if row[1]: return "banned"
     return bcrypt.checkpw(password.encode(), row[0].encode())
 
 def get_all_users():
     conn = sqlite3.connect("chat.db")
-    rows = conn.execute("SELECT username FROM users").fetchall()
+    rows = conn.execute("SELECT username, is_admin, is_banned FROM users").fetchall()
     conn.close()
-    return [r[0] for r in rows]
+    return [{"username": r[0], "is_admin": bool(r[1]), "is_banned": bool(r[2])} for r in rows]
+
+def is_admin(username):
+    if username in ADMINS: return True
+    conn = sqlite3.connect("chat.db")
+    row = conn.execute("SELECT is_admin FROM users WHERE username = ?", (username,)).fetchone()
+    conn.close()
+    return bool(row[0]) if row else False
+
+def ban_user(username):
+    conn = sqlite3.connect("chat.db")
+    conn.execute("UPDATE users SET is_banned = 1 WHERE username = ?", (username,))
+    conn.commit()
+    conn.close()
+
+def unban_user(username):
+    conn = sqlite3.connect("chat.db")
+    conn.execute("UPDATE users SET is_banned = 0 WHERE username = ?", (username,))
+    conn.commit()
+    conn.close()
+
+def make_admin(username):
+    conn = sqlite3.connect("chat.db")
+    conn.execute("UPDATE users SET is_admin = 1 WHERE username = ?", (username,))
+    conn.commit()
+    conn.close()
+
+def remove_admin(username):
+    conn = sqlite3.connect("chat.db")
+    conn.execute("UPDATE users SET is_admin = 0 WHERE username = ?", (username,))
+    conn.commit()
+    conn.close()
 
 def save_room_message(room, sender, text, timestamp):
     conn = sqlite3.connect("chat.db")
@@ -121,6 +162,13 @@ def edit_room_message(msg_id, username, new_text):
         conn.close()
         return False
     conn.execute("UPDATE room_messages SET text=?, edited=1 WHERE id=?", (new_text, msg_id))
+    conn.commit()
+    conn.close()
+    return True
+
+def delete_room_message_admin(msg_id):
+    conn = sqlite3.connect("chat.db")
+    conn.execute("DELETE FROM room_messages WHERE id=?", (msg_id,))
     conn.commit()
     conn.close()
     return True
@@ -189,8 +237,7 @@ class Manager:
         if ws:
             try:
                 await ws.send_text(json.dumps(message))
-            except:
-                pass
+            except: pass
 
     async def broadcast_room(self, room, message):
         dead = []
@@ -201,6 +248,10 @@ class Manager:
                 dead.append(username)
         for u in dead:
             self.rooms[room].pop(u, None)
+
+    async def broadcast_all(self, message):
+        for username in list(self.users.keys()):
+            await self.send_to(username, message)
 
     def online_users(self):
         return list(self.users.keys())
@@ -265,7 +316,12 @@ async def websocket_endpoint(websocket: WebSocket):
             await websocket.close()
             return
     elif action == "login":
-        if not login_user(username, password):
+        result = login_user(username, password)
+        if result == "banned":
+            await websocket.send_text(json.dumps({"type": "auth_fail", "text": "You have been banned from GufGaff."}))
+            await websocket.close()
+            return
+        if not result:
             await websocket.send_text(json.dumps({"type": "auth_fail", "text": "Wrong username or password."}))
             await websocket.close()
             return
@@ -273,13 +329,17 @@ async def websocket_endpoint(websocket: WebSocket):
     await manager.connect(username, websocket)
     current_room = "general"
     manager.rooms[current_room][username] = websocket
+    user_is_admin = is_admin(username)
+    all_users = get_all_users()
 
     await websocket.send_text(json.dumps({
         "type": "auth_ok",
         "username": username,
         "rooms": ROOMS,
-        "all_users": get_all_users(),
+        "all_users": [u["username"] for u in all_users if not u["is_banned"]],
         "online_users": manager.online_users(),
+        "is_admin": user_is_admin,
+        "users_data": all_users,
     }))
 
     for u in list(manager.users.keys()):
@@ -288,7 +348,7 @@ async def websocket_endpoint(websocket: WebSocket):
                 "type": "user_online",
                 "username": username,
                 "online_users": manager.online_users(),
-                "all_users": get_all_users(),
+                "all_users": [u2["username"] for u2 in get_all_users() if not u2["is_banned"]],
             })
 
     history = load_room_messages(current_room)
@@ -380,6 +440,7 @@ async def websocket_endpoint(websocket: WebSocket):
             elif data.get("type") == "delete_message":
                 msg_id = data.get("id")
                 is_dm = data.get("is_dm", False)
+                force = data.get("force", False)
                 if is_dm:
                     other = data.get("other")
                     if delete_dm_message(msg_id, username):
@@ -387,7 +448,12 @@ async def websocket_endpoint(websocket: WebSocket):
                         await manager.send_to(username, msg)
                         await manager.send_to(other, msg)
                 else:
-                    if delete_room_message(msg_id, username):
+                    if force and is_admin(username):
+                        delete_room_message_admin(msg_id)
+                        await manager.broadcast_room(current_room, {
+                            "type": "message_deleted", "id": msg_id, "is_dm": False, "room": current_room
+                        })
+                    elif delete_room_message(msg_id, username):
                         await manager.broadcast_room(current_room, {
                             "type": "message_deleted", "id": msg_id, "is_dm": False, "room": current_room
                         })
@@ -397,12 +463,88 @@ async def websocket_endpoint(websocket: WebSocket):
                 results = search_messages(current_room, query)
                 await websocket.send_text(json.dumps({"type": "search_results", "results": results, "query": query}))
 
+            # ── ADMIN ACTIONS ──────────────────────────────
+            elif data.get("type") == "admin_ban":
+                if not is_admin(username):
+                    continue
+                target = data.get("username")
+                if target in ADMINS:
+                    continue
+                ban_user(target)
+                if target in manager.users:
+                    await manager.send_to(target, {"type": "force_logout", "text": "You have been banned by an admin."})
+                    manager.disconnect(target)
+                await manager.broadcast_all({
+                    "type": "system_admin",
+                    "text": f"🚫 {target} has been banned by admin.",
+                    "users_data": get_all_users(),
+                })
+
+            elif data.get("type") == "admin_unban":
+                if not is_admin(username):
+                    continue
+                target = data.get("username")
+                unban_user(target)
+                await manager.broadcast_all({
+                    "type": "system_admin",
+                    "text": f"✅ {target} has been unbanned.",
+                    "users_data": get_all_users(),
+                })
+
+            elif data.get("type") == "admin_make_admin":
+                if not is_admin(username):
+                    continue
+                target = data.get("username")
+                make_admin(target)
+                await manager.send_to(target, {"type": "promoted", "text": "You have been made an admin! 👑"})
+                await manager.broadcast_all({
+                    "type": "system_admin",
+                    "text": f"👑 {target} has been made an admin.",
+                    "users_data": get_all_users(),
+                })
+
+            elif data.get("type") == "admin_remove_admin":
+                if not is_admin(username):
+                    continue
+                target = data.get("username")
+                if target in ADMINS:
+                    continue
+                remove_admin(target)
+                await manager.broadcast_all({
+                    "type": "system_admin",
+                    "text": f"👤 {target} admin role removed.",
+                    "users_data": get_all_users(),
+                })
+
+            elif data.get("type") == "admin_kick":
+                if not is_admin(username):
+                    continue
+                target = data.get("username")
+                if target in manager.users:
+                    await manager.send_to(target, {"type": "force_logout", "text": "You have been kicked by an admin."})
+                    manager.disconnect(target)
+                await manager.broadcast_all({
+                    "type": "system_admin",
+                    "text": f"👢 {target} was kicked by admin.",
+                    "users_data": get_all_users(),
+                })
+
+            elif data.get("type") == "admin_get_users":
+                if not is_admin(username):
+                    continue
+                await websocket.send_text(json.dumps({
+                    "type": "admin_users_list",
+                    "users_data": get_all_users(),
+                    "online_users": manager.online_users(),
+                }))
+
             elif data.get("type") == "call_offer":
                 target = data.get("to")
                 await manager.send_to(target, {
                     "type": "call_offer",
                     "from": username,
-                    "offer": data.get("offer")
+                    "offer": data.get("offer"),
+                    "callType": data.get("callType", "video")
                 })
 
             elif data.get("type") == "call_answer":
@@ -423,17 +565,11 @@ async def websocket_endpoint(websocket: WebSocket):
 
             elif data.get("type") == "call_reject":
                 target = data.get("to")
-                await manager.send_to(target, {
-                    "type": "call_reject",
-                    "from": username
-                })
+                await manager.send_to(target, {"type": "call_reject", "from": username})
 
             elif data.get("type") == "call_end":
                 target = data.get("to")
-                await manager.send_to(target, {
-                    "type": "call_end",
-                    "from": username
-                })
+                await manager.send_to(target, {"type": "call_end", "from": username})
 
             elif data.get("text"):
                 text = data["text"]
@@ -453,7 +589,8 @@ async def websocket_endpoint(websocket: WebSocket):
         for u in list(manager.users.keys()):
             await manager.send_to(u, {
                 "type": "user_offline", "username": username,
-                "online_users": manager.online_users(), "all_users": get_all_users(),
+                "online_users": manager.online_users(),
+                "all_users": [u2["username"] for u2 in get_all_users() if not u2["is_banned"]],
             })
 
 def _now():
