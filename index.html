@@ -482,13 +482,14 @@ body.light { --bg: #f0f2f5; --sidebar: #e4e6ea; --surface: #ffffff; --surface2: 
       </div>
       <div class="profile-admin-section" id="profile-admin-section" style="display:none;">
         <div class="profile-admin-title">&#128081; Admin Controls</div>
-        <div class="profile-admin-btns">
-          <button class="profile-btn admin-action-btn kick" id="admin-kick-btn" onclick="adminKick(profileUser)">&#128094; Kick</button>
-          <button class="profile-btn admin-action-btn ban" id="admin-ban-btn" onclick="adminBan(profileUser)">&#128683; Ban</button>
-          <button class="profile-btn admin-action-btn unban" id="admin-unban-btn" onclick="adminUnban(profileUser)" style="display:none;">&#9989; Unban</button>
-          <button class="profile-btn admin-action-btn promote" id="admin-promote-btn" onclick="adminMakeAdmin(profileUser)">&#128081; Make Admin</button>
-          <button class="profile-btn admin-action-btn demote" id="admin-demote-btn" onclick="adminRemoveAdmin(profileUser)" style="display:none;">&#128100; Remove Admin</button>
-        </div>
+       <div class="profile-admin-btns">
+  <button class="profile-btn admin-action-btn kick" id="admin-kick-btn" onclick="adminKick(profileUser)">&#128094; Kick</button>
+  <button class="profile-btn admin-action-btn ban" id="admin-ban-btn" onclick="adminBan(profileUser)">&#128683; Ban</button>
+  <button class="profile-btn admin-action-btn unban" id="admin-unban-btn" onclick="adminUnban(profileUser)" style="display:none;">&#9989; Unban</button>
+  <button class="profile-btn admin-action-btn promote" id="admin-promote-btn" onclick="adminMakeAdmin(profileUser)">&#128081; Make Admin</button>
+  <button class="profile-btn admin-action-btn demote" id="admin-demote-btn" onclick="adminRemoveAdmin(profileUser)" style="display:none;">&#128100; Remove Admin</button>
+  <button class="profile-btn admin-action-btn ban" id="admin-delete-btn" onclick="adminDelete(profileUser);closeProfile();" style="background:#8b0000;">&#128465; Delete</button>
+</div>
       </div>
     </div>
   </div>
@@ -844,6 +845,7 @@ function renderAdminContent(){
           ${isOnline&&!u.is_banned?`<button class="admin-action-btn kick" onclick="adminKick('${u.username}');closeAdminPanel()">Kick</button>`:''}
           ${!u.is_banned?`<button class="admin-action-btn ban" onclick="adminBan('${u.username}');closeAdminPanel()">Ban</button>`:''}
           ${u.is_banned?`<button class="admin-action-btn unban" onclick="adminUnban('${u.username}')">Unban</button>`:''}
+          <button class="admin-action-btn ban" onclick="adminDelete('${u.username}')" style="background:#8b0000;color:#fff;">🗑️ Delete</button>
           ${!u.is_admin?`<button class="admin-action-btn promote" onclick="adminMakeAdmin('${u.username}');closeAdminPanel()">Make Admin</button>`:''}
           ${u.is_admin?`<button class="admin-action-btn demote" onclick="adminRemoveAdmin('${u.username}');closeAdminPanel()">Remove Admin</button>`:''}
         </div>`:''}
@@ -852,6 +854,7 @@ function renderAdminContent(){
   `;
 }
 function adminKick(username){if(!confirm(`Kick ${username}?`))return;ws.send(JSON.stringify({type:"admin_kick",username}));}
+function adminDelete(username){if(!confirm(`PERMANENTLY DELETE ${username}? This cannot be undone!`))return;ws.send(JSON.stringify({type:"admin_delete_user",username}));closeAdminPanel();}
 function adminBan(username){if(!confirm(`Ban ${username}? They won't be able to login.`))return;ws.send(JSON.stringify({type:"admin_ban",username}));closeProfile();}
 function adminUnban(username){if(!confirm(`Unban ${username}?`))return;ws.send(JSON.stringify({type:"admin_unban",username}));}
 function adminMakeAdmin(username){if(!confirm(`Make ${username} an admin?`))return;ws.send(JSON.stringify({type:"admin_make_admin",username}));closeProfile();}

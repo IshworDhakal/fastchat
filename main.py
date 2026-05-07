@@ -380,6 +380,25 @@ async def websocket_endpoint(websocket: WebSocket):
                 await websocket.send_text('{"type":"pong"}')
                 continue
 
+            elif data.get("type") == "admin_delete_user":
+                if not is_admin(username):
+                    continue
+                target = data.get("username")
+                if target in ADMINS:
+                    continue
+                if target in manager.users:
+                    await manager.send_to(target, {"type": "force_logout", "text": "Your account has been deleted by an admin."})
+                    manager.disconnect(target)
+                conn = sqlite3.connect("chat.db")
+                conn.execute("DELETE FROM users WHERE username = ?", (target,))
+                conn.commit()
+                conn.close()
+                await manager.broadcast_all({
+                    "type": "system_admin",
+                    "text": f"🗑️ {target}'s account was deleted by admin.",
+                    "users_data": get_all_users(),
+                })
+
             elif data.get("type") == "typing":
                 is_dm = data.get("to") is not None
                 if is_dm:
