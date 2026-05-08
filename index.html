@@ -462,8 +462,6 @@ body.light { --bg: #f0f2f5; --sidebar: #e4e6ea; --surface: #ffffff; --surface2: 
     <div class="field"><div class="auth-label">Password</div><div class="input-wrap"><input id="auth-password" type="password" placeholder="Enter your password" maxlength="64" style="padding-right:36px"/><span class="eye" onclick="togglePwd('auth-password')">&#128065;</span></div></div>
     <div class="error-msg" id="auth-error"></div>
     <button class="btn-primary" onclick="doAuth('login')">Log In</button>
-    <div class="divider"><span>or</span></div>
-    <div class="social-row"><div class="social-btn">G</div><div class="social-btn">&#128025;</div><div class="social-btn">&#127918;</div></div>
     <div class="auth-switch">Need an account? <a onclick="showReg()">Register</a></div>
   </div>
 
@@ -862,7 +860,23 @@ function connectWS(action,username,password){
   const proto=location.protocol==="https:"?"wss":"ws";
   ws=new WebSocket(`${proto}://${location.host}/ws`);
   ws.onopen=()=>ws.send(JSON.stringify({action,username,password}));
-  ws.onmessage=e=>{const m=JSON.parse(e.data);if(m.type==="pong")return;handleMsg(m);};
+  ws.onmessage=e=>{
+    const m=JSON.parse(e.data);
+    if(m.type==="pong")return;
+    if(action==="register"&&m.type==="auth_ok"){
+      ws.close();
+      document.getElementById("reg-error").style.color="var(--green)";
+      document.getElementById("reg-error").textContent="✅ Account created! Redirecting to login...";
+      setTimeout(()=>{
+        document.getElementById("reg-error").textContent="";
+        document.getElementById("reg-error").style.color="";
+        showLogin();
+        document.getElementById("auth-username").value=username;
+      },2000);
+      return;
+    }
+    handleMsg(m);
+  };
   ws.onclose=()=>{setTimeout(()=>{const {u,p}=getSaved();if(u&&p)connectWS("login",u,p);},3000);};
   if(action==="login")saveSession(username,password);
 }
