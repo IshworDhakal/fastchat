@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>GufGaff</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Syne:wght@700;800&display=swap" rel="stylesheet"/>
+<link rel="stylesheet" href="/css/main.css">
+</head>
+<body>
+
+<div id="auth-overlay">
+  <div class="auth-card" id="login-card">
+    <div class="auth-logo">
+      <div class="auth-logo-icon"><img src="/logo.png" style="width:100%;height:100%;object-fit:cover;border-radius:12px;"/></div>
+      <h1><span class="fc-fast">Guf</span><span class="fc-chat">Gaff</span></h1>
+      <p class="auth-page-title">Welcome back!</p>
+      <p class="auth-subtitle">Login to continue to your account</p>
+    </div>
+    <div class="field"><div class="auth-label">Username</div><div class="input-wrap"><input id="auth-username" type="text" placeholder="Enter your username" maxlength="24" autocomplete="off"/></div></div>
+    <div class="field"><div class="auth-label">Password</div><div class="input-wrap"><input id="auth-password" type="password" placeholder="Enter your password" maxlength="64" style="padding-right:36px"/><span class="eye" onclick="togglePwd('auth-password')">&#128065;</span></div></div>
+    <div class="error-msg" id="auth-error"></div>
+    <button class="btn-primary" onclick="doAuth('login')">Log In</button>
+    <div class="auth-switch">Need an account? <a onclick="showReg()">Register</a></div>
+  </div>
+
+  <div class="auth-card" id="reg-card" style="display:none;">
+    <button class="back-btn" onclick="showLogin()">&#8592;</button>
+    <div class="auth-logo">
+      <div class="auth-logo-icon">&#10024;</div>
+      <h1><span class="fc-fast">Guf</span><span class="fc-chat">Gaff</span></h1>
+      <p class="auth-page-title">Join GufGaff</p>
+      <p class="auth-subtitle">Create an account to get started</p>
+    </div>
+    <div class="field">
+      <div class="auth-label">Full Name</div>
+      <div class="input-wrap"><input id="reg-fullname" type="text" placeholder="Your full name" maxlength="48" oninput="validateField('fullname')"/><span class="field-status" id="status-fullname"></span></div>
+      <div class="field-msg" id="msg-fullname"></div>
+    </div>
+    <div class="field">
+      <div class="auth-label">Username</div>
+      <div class="input-wrap"><input id="reg-username" type="text" placeholder="Choose a username" maxlength="24" autocomplete="off" oninput="validateField('username')"/><span class="field-status" id="status-username"></span></div>
+      <div class="field-msg" id="msg-username"></div>
+    </div>
+    <div class="field">
+      <div class="auth-label">Password</div>
+      <div class="input-wrap"><input id="reg-password" type="password" placeholder="Choose a strong password" maxlength="64" style="padding-right:36px" oninput="validateField('password')"/><span class="eye" onclick="togglePwd('reg-password')">&#128065;</span></div>
+      <div class="strength-row"><span>Password strength</span><span class="s-label" id="s-label"></span></div>
+      <div class="strength-bars"><div class="s-bar" id="b1"></div><div class="s-bar" id="b2"></div><div class="s-bar" id="b3"></div><div class="s-bar" id="b4"></div></div>
+      <div class="field-msg" id="msg-password"></div>
+    </div>
+    <div class="field">
+      <div class="auth-label">Confirm Password</div>
+      <div class="input-wrap"><input id="reg-confirm" type="password" placeholder="Confirm your password" maxlength="64" style="padding-right:36px" oninput="validateField('confirm')"/><span class="eye" onclick="togglePwd('reg-confirm')">&#128065;</span></div>
+      <div class="field-msg" id="msg-confirm"></div>
+    </div>
+    <label class="terms-row"><input type="checkbox" id="terms-chk" onchange="validateField('terms')"/><span>I agree to the <a href="#">Terms of Service</a> and <a href="#">Privacy Policy</a></span></label>
+    <div class="field-msg" id="msg-terms"></div>
+    <div class="error-msg" id="reg-error"></div>
+    <button class="btn-primary" id="reg-btn" onclick="doRegister()" disabled>Create Account</button>
+    <div class="auth-switch">Already have an account? <a onclick="showLogin()">Login</a></div>
+  </div>
+</div>
+
+<div class="img-preview" id="img-preview" onclick="closePreview()">
+  <img id="preview-img" src="" alt="preview" onclick="event.stopPropagation()"/>
+  <div class="img-preview-actions" onclick="event.stopPropagation()">
+    <button class="img-preview-btn" onclick="downloadImg()">&#8595; Download</button>
+    <button class="img-preview-btn" onclick="closePreview()">&#10005; Close</button>
+  </div>
+</div>
+
+<div class="modal-overlay" id="profile-modal" onclick="closeProfile()">
+  <div class="profile-modal" onclick="event.stopPropagation()">
+    <div class="profile-banner">
+      <div class="profile-av-wrap"><div class="profile-av" id="profile-av">?</div></div>
+      <button class="profile-close" onclick="closeProfile()">&#10005;</button>
+    </div>
+    <div class="profile-body">
+      <div class="profile-name" id="profile-name">Username</div>
+      <div class="profile-tag" id="profile-tag">GufGaff User</div>
+      <div class="profile-status"><div class="profile-status-dot" id="profile-status-dot"></div><span id="profile-status-text">Online</span></div>
+      <div class="profile-divider"></div>
+      <div class="profile-actions">
+        <button class="profile-btn profile-btn-primary" id="profile-dm-btn" onclick="profileSendDM()">&#128172; Message</button>
+        <button class="profile-btn profile-btn-primary" id="profile-call-btn" onclick="closeProfile();startCall(profileUser,'video')" style="background:var(--green);">&#128247; Video</button>
+        <button class="profile-btn profile-btn-primary" id="profile-audio-btn" onclick="closeProfile();startCall(profileUser,'audio')" style="background:var(--accent);">&#127908; Audio</button>
+        <button class="profile-btn profile-btn-secondary" onclick="closeProfile()">Close</button>
+      </div>
+      <div class="profile-admin-section" id="profile-admin-section" style="display:none;">
+        <div class="profile-admin-title">&#128081; Admin Controls</div>
+        <div class="profile-admin-btns">
+          <button class="profile-btn admin-action-btn kick" id="admin-kick-btn" onclick="adminKick(profileUser)">&#128094; Kick</button>
+          <button class="profile-btn admin-action-btn ban" id="admin-ban-btn" onclick="adminBan(profileUser)">&#128683; Ban</button>
+          <button class="profile-btn admin-action-btn unban" id="admin-unban-btn" onclick="adminUnban(profileUser)" style="display:none;">&#9989; Unban</button>
+          <button class="profile-btn admin-action-btn promote" id="admin-promote-btn" onclick="adminMakeAdmin(profileUser)">&#128081; Make Admin</button>
+          <button class="profile-btn admin-action-btn demote" id="admin-demote-btn" onclick="adminRemoveAdmin(profileUser)" style="display:none;">&#128100; Remove Admin</button>
+          <button class="profile-btn admin-action-btn ban" id="admin-delete-btn" onclick="adminDelete(profileUser);closeProfile();" style="background:#8b0000;">&#128465; Delete</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- PRIVATE ROOM MODAL -->
+<div class="modal-overlay" id="private-room-modal" onclick="closePrivateRoomModal()">
+  <div class="modal-box" onclick="event.stopPropagation()">
+    <h3 id="private-room-modal-title">&#128274; Join Private Room</h3>
+    <div id="private-room-name-wrap" style="display:none;">
+      <input class="modal-input" id="private-room-name" type="text" placeholder="Room name (no spaces)" maxlength="24"/>
+    </div>
+    <input class="modal-input" id="private-room-password" type="password" placeholder="Room password"/>
+    <div class="modal-error" id="private-room-error"></div>
+    <div class="modal-btns">
+      <button class="modal-btn modal-btn-primary" id="private-room-submit" onclick="submitPrivateRoom()">Join</button>
+      <button class="modal-btn modal-btn-secondary" onclick="closePrivateRoomModal()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- POLL CREATE MODAL -->
+<div class="modal-overlay" id="poll-modal" onclick="closePollModal()">
+  <div class="modal-box" onclick="event.stopPropagation()" style="max-width:420px;">
+    <h3>&#128202; Create Poll</h3>
+    <input class="modal-input" id="poll-question" type="text" placeholder="Ask a question..." maxlength="200"/>
+    <div id="poll-options-wrap">
+      <div class="poll-option-input"><input type="text" placeholder="Option 1" maxlength="100"/></div>
+      <div class="poll-option-input"><input type="text" placeholder="Option 2" maxlength="100"/></div>
+    </div>
+    <button class="poll-add-btn" onclick="addPollOption()" style="width:100%;margin-bottom:10px;">+ Add Option</button>
+    <div class="modal-error" id="poll-error"></div>
+    <div class="modal-btns">
+      <button class="modal-btn modal-btn-primary" onclick="submitPoll()">Create Poll</button>
+      <button class="modal-btn modal-btn-secondary" onclick="closePollModal()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- ADMIN PANEL -->
+<div class="admin-panel" id="admin-panel">
+  <div class="admin-panel-inner">
+    <div class="admin-panel-header">
+      <div class="admin-panel-title">&#128081; Admin Panel</div>
+      <button class="admin-panel-close" onclick="closeAdminPanel()">&#10005;</button>
+    </div>
+    <div class="admin-tabs">
+      <div class="admin-tab active" onclick="switchAdminTab('all')" id="tab-all">&#128101; All Users</div>
+      <div class="admin-tab" onclick="switchAdminTab('online')" id="tab-online">&#9679; Online</div>
+      <div class="admin-tab" onclick="switchAdminTab('banned')" id="tab-banned">&#128683; Banned</div>
+    </div>
+    <div class="admin-content" id="admin-content"></div>
+  </div>
+</div>
+
+<div class="sidebar-overlay" id="sidebar-overlay" onclick="closeSidebar()"></div>
+<div class="app" id="app">
+  <div class="sidebar" id="sidebar">
+    <div class="sidebar-top">
+      <div class="brand">
+        <div class="brand-icon"><img src="/logo.png" style="width:100%;height:100%;object-fit:cover;border-radius:8px;"/></div>
+        <div class="brand-name"><span class="fc-fast">Guf</span><span class="fc-chat">Gaff</span></div>
+      </div>
+      <div class="my-status"><div class="status-dot"></div><span class="my-username" id="my-uname">—</span><span style="font-size:.7rem;opacity:.5">&#8226; Online</span></div>
+    </div>
+    <div class="sidebar-search"><div class="search-box"><span style="font-size:.85rem;opacity:.4">&#128269;</span><input type="text" placeholder="Search users..." oninput="filterAll(this.value)"/></div></div>
+    <div class="sidebar-scroll">
+      <div class="sec-header"><span>Channels</span><span class="sec-add" onclick="openCreatePollModal()" title="Create Poll">&#128202;</span></div>
+      <div id="room-list"></div>
+      <div class="sec-header" style="margin-top:8px"><span>Private Rooms</span><span class="sec-add" onclick="openCreatePrivateRoom()" title="Create Room">&#43;</span></div>
+      <div id="private-room-list"></div>
+      <div class="sec-header" style="margin-top:8px"><span>Direct Messages</span><span class="sec-add">&#43;</span></div>
+      <div id="contact-list"></div>
+    </div>
+    <div class="user-panel">
+      <div class="up-av" id="up-av" onclick="openMyProfile()">?<div class="up-st"></div></div>
+      <div class="up-info"><div class="up-name" id="up-name">—</div><div class="up-tag" id="up-tag">&#9679; Online</div></div>
+      <div class="up-icons">
+        <button class="up-icon" id="admin-panel-btn" title="Admin Panel" onclick="openAdminPanel()" style="display:none;">&#128081;</button>
+        <button class="up-icon" title="Toggle Theme" onclick="toggleTheme()">&#9681;</button>
+        <button class="up-icon" title="Logout" onclick="logout()">&#10132;</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="chat">
+    <div class="chat-bg"></div>
+    <div class="chat-header">
+      <button class="menu-btn" onclick="openSidebar()">&#9776;</button>
+      <span class="ch-icon" id="ch-icon">#</span>
+      <span class="ch-title" id="ch-title">general</span>
+      <span class="ch-lock">&#128274;</span>
+      <div class="ch-divider"></div>
+      <span class="ch-topic" id="ch-topic">General discussion</span>
+      <div class="ch-actions">
+        <div class="member-count"><div class="mc-dot"></div><span id="online-count">0 Members</span></div>
+        <button class="h-btn" id="search-toggle" onclick="toggleSearch()">&#128269;</button>
+        <button class="h-btn" id="notif-toggle" onclick="toggleNotifPanel()">&#128276;<span class="notif-count" id="notif-count" style="display:none"></span></button>
+        <button class="h-btn" id="options-toggle" onclick="toggleOptionsMenu()">&#8942;</button>
+      </div>
+    </div>
+
+    <div class="search-panel" id="search-panel">
+      <div class="search-panel-input"><input id="search-input" type="text" placeholder="Search messages..." autocomplete="off"/><button class="search-panel-btn" onclick="doSearch()">&#128269;</button></div>
+      <div class="search-results" id="search-results"></div>
+    </div>
+
+    <div class="notif-panel" id="notif-panel">
+      <div class="notif-panel-header"><span>&#128276; Notifications</span><button onclick="clearNotifs()">Clear all</button></div>
+      <div class="notif-list" id="notif-list"><div class="notif-empty">No notifications yet</div></div>
+    </div>
+
+    <div class="options-menu" id="options-menu">
+      <div class="options-header">&#8942; Options</div>
+      <div class="options-divider"></div>
+      <div class="options-item" onclick="showPinnedMessages()"><span class="options-icon">&#128204;</span><div class="options-info"><div class="options-title">Pinned Messages</div><div class="options-desc">View pinned messages</div></div></div>
+      <div class="options-item" id="mute-item" onclick="toggleMuteRoom()"><span class="options-icon">&#128263;</span><div class="options-info"><div class="options-title" id="mute-title">Mute Room</div><div class="options-desc" id="mute-desc">Stop notifications</div></div></div>
+      <div class="options-item" onclick="showRoomMembers()"><span class="options-icon">&#128101;</span><div class="options-info"><div class="options-title">Room Members</div><div class="options-desc" id="members-desc">0 members online</div></div></div>
+      <div class="options-item" onclick="openCreatePollModal()"><span class="options-icon">&#128202;</span><div class="options-info"><div class="options-title">Create Poll</div><div class="options-desc">Ask the room a question</div></div></div>
+      <div class="options-item" onclick="exportChat()"><span class="options-icon">&#128203;</span><div class="options-info"><div class="options-title">Export Chat</div><div class="options-desc">Download as text file</div></div></div>
+      <div class="options-divider"></div>
+      <div class="options-item danger" onclick="clearChatMessages()"><span class="options-icon">&#128465;</span><div class="options-info"><div class="options-title">Clear Messages</div><div class="options-desc">Clear chat on screen</div></div></div>
+    </div>
+
+    <div class="pinned-panel" id="pinned-panel">
+      <div class="notif-panel-header"><span>&#128204; Pinned Messages</span><button onclick="closePinned()">&#10005;</button></div>
+      <div class="notif-list" id="pinned-list"><div class="notif-empty">No pinned messages</div></div>
+    </div>
+
+    <div class="members-panel" id="members-panel">
+      <div class="notif-panel-header"><span>&#128101; Room Members</span><button onclick="closeMembers()">&#10005;</button></div>
+      <div class="notif-list" id="members-list"></div>
+    </div>
+
+    <div id="messages"><div class="empty-chat"><div class="ic">&#128172;</div><p>Select a channel or user to chat</p></div></div>
+    <div class="upload-progress" id="upload-progress">&#128247; Uploading image...</div>
+    <div class="typing-bar">
+      <div class="typing-dots" id="typing-dots" style="display:none;"><span></span><span></span><span></span></div>
+      <span id="typing-text"></span>
+    </div>
+    <div class="reply-bar" id="reply-bar">
+      <div style="color:var(--accent);font-size:1rem;">&#8617;</div>
+      <div class="reply-bar-content">
+        <div class="reply-bar-sender" id="reply-bar-sender"></div>
+        <div class="reply-bar-text" id="reply-bar-text"></div>
+      </div>
+      <button class="reply-bar-close" onclick="cancelReply()">&#10005;</button>
+    </div>
+
+    <div class="emoji-picker" id="emoji-picker">
+      <div class="emoji-header"><input class="emoji-search" type="text" placeholder="Search emoji..." oninput="searchEmoji(this.value)"/></div>
+      <div class="emoji-cats" id="emoji-cats"></div>
+      <div class="emoji-body" id="emoji-body"></div>
+      <div class="emoji-scroll-btns">
+        <button class="emoji-scroll-btn" onclick="scrollEmoji(-150)">&#8593; Up</button>
+        <button class="emoji-scroll-btn" onclick="scrollToTop()">&#8679; Top</button>
+        <button class="emoji-scroll-btn" onclick="scrollEmoji(150)">&#8595; Down</button>
+      </div>
+    </div>
+
+    <div class="input-wrap-outer">
+      <div class="input-box">
+        <button class="ia" onclick="triggerUpload()">&#43;</button>
+        <input id="msg-input" type="text" placeholder="Type a message..." disabled autocomplete="off"/>
+        <button class="ia" id="emoji-toggle" onclick="toggleEmoji()">&#128512;</button>
+        <button class="ia" style="font-size:.72rem;font-weight:700;width:auto;padding:0 6px;">GIF</button>
+        <button class="ia" onclick="triggerUpload()">&#128247;</button>
+        <button class="send-btn" id="send-btn" disabled onclick="sendMsg()">&#10148;</button>
+      </div>
+    </div>
+    <input type="file" id="file-input" accept="image/*" onchange="uploadImage(this)"/>
+  </div>
+</div>
+
+<!-- INCOMING CALL -->
+<div class="incoming-call" id="incoming-call">
+  <div class="incoming-call-av" id="incoming-call-av">?</div>
+  <div class="incoming-call-name" id="incoming-call-name">Someone</div>
+  <div class="incoming-call-text" id="incoming-call-text">&#128247; Incoming video call...</div>
+  <div class="incoming-call-btns">
+    <button class="call-accept" onclick="acceptCall()" title="Accept">&#128222;</button>
+    <button class="call-decline" onclick="rejectCall()" title="Decline">&#128222;</button>
+  </div>
+</div>
+
+<!-- CALL SCREEN -->
+<div class="call-overlay" id="call-overlay">
+  <div class="call-info">
+    <div class="call-info-name" id="call-info-name">Username</div>
+    <div class="call-info-status" id="call-info-status">Connecting...</div>
+  </div>
+  <div id="call-audio-indicator" style="display:none;flex-direction:column;align-items:center;gap:16px;margin:24px 0;">
+    <div id="call-audio-av" style="width:100px;height:100px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;font-size:2.5rem;font-weight:700;color:#fff;animation:audioPulse 1.5s infinite;">?</div>
+    <div style="color:var(--text-muted);font-size:.88rem;">&#127908; Audio Call</div>
+  </div>
+  <div class="call-videos">
+    <div class="call-video-wrap remote">
+      <video id="remote-video" autoplay playsinline></video>
+      <div class="call-video-label" id="remote-label">Remote</div>
+    </div>
+  </div>
+  <div class="call-video-wrap local">
+    <video id="local-video" autoplay playsinline muted></video>
+    <div class="call-video-label">You</div>
+  </div>
+  <audio id="remote-audio" autoplay></audio>
+  <div class="call-controls">
+    <button class="call-btn mute" id="mute-btn" onclick="toggleMic()" title="Mute">&#127908;</button>
+    <button class="call-btn end" onclick="endCall()" title="End Call">&#128222;</button>
+    <button class="call-btn cam" id="cam-btn" onclick="toggleCam()" title="Camera">&#128247;</button>
+  </div>
+</div>
+
+<script src="/js/app.js"></script>
+</body>
+</html>
